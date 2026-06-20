@@ -1,0 +1,111 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #1e1a14;
+  --parchment: #f0e8d0;   /* page background — timeline body */
+  --panel: #f8f1e3;       /* light panel surfaces — timeline cards */
+  --sepia: #8B6914;       /* gold accent — timeline gold */
+  --gold-soft: #c8b060;   /* light gold — borders, secondary accents */
+  --muted: #6b5f47;       /* secondary text */
+  --rule: #d4c4a8;        /* rules & borders — timeline hairlines */
+  --accent: #3c2f1f;      /* dark chrome — timeline header */
+  --accent-soft: #5c4730; /* hover tone on dark chrome — timeline hover */
+  --pale: #e8d9b8;        /* sand fills, tags */
+}
+
+body {
+  background: var(--parchment);
+  color: var(--ink);
+  font-family: Georgia, 'Palatino Linotype', serif;
+  font-size: 1.05rem;
+  line-height: 1.8;
+  min-height: 100vh;
+}
+
+/* — header injected by nav.js — */
+.top-rule { height: 3px; background: var(--accent); }
+
+header {
+  padding: 2.4rem 3rem 1.6rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 2rem; flex-wrap: wrap;
+}
+
+.site-name {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.1rem; font-weight: 400; letter-spacing: 0.05em;
+}
+
+/* === NEW STYLES FOR CONSISTENCY === */
+
+.main-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+    display: flex;
+    gap: 2.5rem;
+}
+
+.sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--accent);
+    color: white;
+    padding: 1.5rem 0;
+    border-radius: 6px;
+    height: fit-content;
+}
+
+.sidebar a {
+    display: block;
+    padding: 0.75rem 1.5rem;
+    color: white;
+    text-decoration: none;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background: var(--sepia);
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    color: var(--muted);
+}
+
+.breadcrumb a {
+    color: var(--sepia);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+/* Make top nav nicer */
+header nav a {
+    margin: 0 0.8rem;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+header nav a:hover {
+    color: var(--sepia);
+}
+
+/* Footer */
+footer {
+    margin-top: 4rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--rule);
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+footer nav a {
+    color: var(--ink);
+    text-decoration: none;
+}
+footer nav a:hover { color: var(--sepia); }

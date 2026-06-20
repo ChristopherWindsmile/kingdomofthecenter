@@ -1,0 +1,33 @@
+{
+  "forbidden-city": [
+    {
+      "label": "Southern Gate — The Meridian Gate (Wumen 午门)",
+      "image": "images/forbidden_city_gates/southern-gate_meridian_Wumen_午门-1.jpg",
+      "caption": "The Meridian Gate (午門, Wǔmén) is the southern entrance and ceremonial threshold of the Forbidden City. Five arched passageways pierce the U-shaped tower: the central gate was reserved for the Emperor alone. Its name aligns it symbolically with the celestial meridian — the axis that divides east from west."
+    },
+    {
+      "label": "Southern Gate — The Meridian Gate (Wumen 午门), detail",
+      "image": "images/forbidden_city_gates/southern-gate_meridian_Wumen_午门-2.jpg",
+      "caption": "The Meridian Gate (午門, Wǔmén) is the southern entrance and ceremonial threshold of the Forbidden City. Five arched passageways pierce the U-shaped tower: the central gate was reserved for the Emperor alone. Its name aligns it symbolically with the celestial meridian — the axis that divides east from west."
+    },
+    {
+      "label": "Eastern Gate (Donghuamen 东华门)",
+      "image": "images/forbidden_city_gates/eastern-gate_glorious-or-prosperity_Donghuamen_东华门.jpg",
+      "caption": "..."
+    },
+    {
+      "label": "Northern Gate — Gate of Divine Might (Shenwumen 神武门)",
+      "image": "images/forbidden_city_gates/northern-gate_divine_might-or-prowess_Shenwumen_神武门.jpeg",
+      "caption": "..."
+    },
+    {
+      "label": "Western Gate (Xihuamen 西华门)",
+      "image": "images/forbidden_city_gates/western-gate_glorious-or-prosperity_Xihuamen_西华门.jpg",
+      "caption": "..."
+    }
+  ],
+    "stonehenge": [
+    { "label": "The Sarsen Circle", "image": "...", "caption": "..." },
+    { "label": "The Heel Stone",    "image": "...", "caption": "..." }
+  ]
+}

@@ -1,0 +1,217 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bird-Feather Motifs • Vintage Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body { margin:0; font-family: system-ui, sans-serif; background: #111; color: #eee; overflow: hidden; }
+  #map { height: 100vh; width: 100%; }
+  #panel {
+    position: fixed; top: 20px; right: 20px; width: 340px; background: rgba(30,30,30,0.95);
+    border: 1px solid #555; border-radius: 12px; padding: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+    z-index: 1000; max-height: 85vh; overflow-y: auto; display: none;
+  }
+  #panel img { width: 100%; border-radius: 8px; margin-bottom: 15px; }
+  #panel h2 { margin: 0 0 10px 0; color: #ffd700; }
+  #panel p { line-height: 1.6; color: #ddd; }
+  #close-panel { float: right; background: none; border: none; color: #aaa; font-size: 22px; cursor: pointer; }
+  #start-tour {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: #8B6914; color: white; border: none; padding: 12px 24px;
+    border-radius: 999px; font-size: 15px; cursor: pointer; z-index: 1001;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  }
+
+  #coord-picker {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffd700;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-family: monospace;
+    z-index: 1001;
+    white-space: nowrap;
+    display: none;
+    align-items: center;
+    gap: 12px;
+  }
+  #coord-picker.active { display: flex; }
+  #coord-value {
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.03em;
+  }
+  #coord-copy {
+    background: #8B6914;
+    border: none;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  #coord-copy:hover { background: #6b4f0f; }
+  #picker-toggle {
+    position: fixed;
+    bottom: 30px;
+    right: 20px;
+    background: #333;
+    color: #ffd700;
+    border: 1px solid #555;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 1001;
+  }
+  #picker-toggle.on { background: #8B6914; border-color: #8B6914; color: white; }
+  body.picking { cursor: crosshair; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="coord-picker">
+  <span>📍 Click on image to get coordinates:</span>
+  <span id="coord-value">—</span>
+  <button id="coord-copy" onclick="copyCoords()">Copy</button>
+</div>
+
+<button id="picker-toggle" onclick="togglePicker()">📍 Pick Coordinates</button>
+
+
+<button id="start-tour" onclick="startGuidedTour()">▶ Start Guided Tour</button>
+
+<div id="panel">
+  <button id="close-panel" onclick="closePanel()">×</button>
+  <img id="panel-image" src="" alt="">
+  <h2 id="panel-title"></h2>
+  <p id="panel-text"></p>
+</div>
+
+<script>
+// Bird Motifs Data (adjusted coordinates for your vintage map)
+const motifs = [
+  { lat: 0.38, lng: 0.48, label: "Apkallu (Mesopotamia)", image: "../portabletemple/images/bird-feather/Apkallu_Nimrud.png", text: "Winged guardian figure from ancient Assyria. Symbol of divine wisdom." },
+  { lat: 0.55, lng: 0.65, label: "Garuda (Southeast Asia)", image: "../portabletemple/images/bird-feather/Garuda.png", text: "Mythical bird-like creature, vehicle of Vishnu. Symbol of power." },
+  { lat: 0.42, lng: 0.38, label: "Nike (Ancient Greece)", image: "../portabletemple/images/bird-feather/Nike.jpg", text: "Goddess of victory, often shown with wings." },
+  { lat: 0.48, lng: 0.52, label: "Seraph (Abrahamic)", image: "../portabletemple/images/bird-feather/Seraph_Jerusalem_YMCA.jpg", text: "Fiery winged beings in the Hebrew Bible." }
+];
+
+let map, currentTourIndex = 0;
+
+function initMap() {
+  map = L.map('map', {
+    crs: L.CRS.Simple,
+    minZoom: -3,
+    maxZoom: 5,
+    zoomControl: true
+  });
+
+  // Coordinate picker — click anywhere on the image to get pixel coords
+  map.on('click', function(e) {
+    if (!pickerActive) return;
+    // e.latlng gives us the pixel position in the image coordinate space
+    const rawLat = e.latlng.lat.toFixed(1);
+    const rawLng = e.latlng.lng.toFixed(1);
+    // Also show as proportion of image (useful for responsive coords)
+    const coords = rawLat + ', ' + rawLng;
+    lastCoords = coords;
+    document.getElementById('coord-value').textContent = coords;
+
+    // Drop a temporary red dot to confirm position
+    const dot = L.circleMarker([e.latlng.lat, e.latlng.lng], {
+      radius: 6, color: '#ff4444', fillColor: '#ff4444',
+      fillOpacity: 0.9, weight: 2
+    }).addTo(map);
+    setTimeout(function() { map.removeLayer(dot); }, 3000);
+  });
+
+  const imageUrl = "../portabletemple/images/landing-giga.png";
+
+  const img = new Image();
+  img.onload = function() {
+    const bounds = [[0, 0], [img.height, img.width]];
+    L.imageOverlay(imageUrl, bounds).addTo(map);
+    map.fitBounds(bounds, { padding: [50, 50] });
+
+    // Add markers
+    motifs.forEach((motif, index) => {
+      const marker = L.marker([motif.lat * img.height, motif.lng * img.width]).addTo(map);
+      marker.bindTooltip(`<b>${motif.label}</b>`, { direction: 'top', offset: [0, -10] });
+      marker.on('click', () => showPanel(motif));
+    });
+  };
+  img.src = imageUrl;
+}
+
+function showPanel(motif) {
+  document.getElementById('panel-image').src = motif.image;
+  document.getElementById('panel-title').textContent = motif.label;
+  document.getElementById('panel-text').textContent = motif.text;
+  document.getElementById('panel').style.display = 'block';
+}
+
+function closePanel() {
+  document.getElementById('panel').style.display = 'none';
+}
+
+function startGuidedTour() {
+  currentTourIndex = 0;
+  showTourStep();
+}
+
+function showTourStep() {
+  if (currentTourIndex >= motifs.length) {
+    closePanel();
+    return;
+  }
+  const motif = motifs[currentTourIndex];
+  showPanel(motif);
+  currentTourIndex++;
+}
+
+
+// ── Coordinate Picker ──────────────────────
+let pickerActive = false;
+let lastCoords = null;
+
+function togglePicker() {
+  pickerActive = !pickerActive;
+  const btn = document.getElementById('picker-toggle');
+  const display = document.getElementById('coord-picker');
+  if (pickerActive) {
+    btn.textContent = '✕ Stop Picking';
+    btn.classList.add('on');
+    display.classList.add('active');
+    document.body.classList.add('picking');
+  } else {
+    btn.textContent = '📍 Pick Coordinates';
+    btn.classList.remove('on');
+    display.classList.remove('active');
+    document.body.classList.remove('picking');
+  }
+}
+
+function copyCoords() {
+  if (!lastCoords) return;
+  const text = lastCoords;
+  navigator.clipboard.writeText(text).then(function() {
+    const btn = document.getElementById('coord-copy');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+
+window.onload = initMap;
+</script>
+</body>
+</html>

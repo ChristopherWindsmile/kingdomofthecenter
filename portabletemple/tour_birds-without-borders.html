@@ -1,0 +1,602 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bird-Feather Motifs • Interactive Explorer</title>
+<link rel="stylesheet" href="../assets/leaflet/leaflet.css" />
+  <script src="../assets/leaflet/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&amp;family=Inter:wght@400;500&amp;display=swap');
+
+  body { 
+    margin:0; 
+    font-family: 'Inter', system_ui, sans-serif; 
+    background: #0f0e0a; 
+    color: #f5f0e1; 
+    overflow: hidden; 
+  }
+  
+  #map { height: 100vh; width: 100%; }
+  .leaflet-container { background: #141310; }
+
+  /* Panel Styles */
+  #panel {
+    position: fixed; 
+    top: 24px; 
+    bottom: 24px;
+    right: 24px; 
+    width: 380px; 
+    background: rgba(20, 19, 16, 0.96);
+    border: 1px solid #5c5240; 
+    border-radius: 16px; 
+    padding: 24px; 
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    z-index: 1000; 
+    overflow: hidden;
+    display: none;
+    flex-direction: column;
+    animation: panelPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  @keyframes panelPop {
+    from { opacity: 0; transform: translateY(30px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* The scrolling region: image + title + caption.
+     It absorbs any height shortage, so the image is never squeezed
+     and the nav bar below is never pushed out of view. */
+  #panel-scroll {
+    flex: 1 1 auto;
+    min-height: 0;          /* allows it to shrink inside the flex column */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #panel img {
+    display: block;
+    width: 100%;
+    max-height: 240px;
+    object-fit: contain;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    border: 1px solid #5c5240;
+    background: #1a1814;
+  }
+  
+  #panel h2 { 
+    margin: 0 0 12px 0; 
+    color: #e8d5a3; 
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  
+  #panel p { 
+    line-height: 1.7; 
+    color: #d4c9b0; 
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+
+  #close-panel { 
+    float: right; 
+    background: none; 
+    border: none; 
+    color: #8a7f68; 
+    font-size: 26px; 
+    cursor: pointer; 
+    line-height: 1;
+    padding: 0 4px;
+  }
+  #close-panel:hover { color: #e8d5a3; }
+
+  /* Tour Navigation */
+  #tour-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #5c5240;
+  }
+  
+  .tour-btn {
+    background: #8B6914;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  .tour-btn:hover {
+    background: #a67c1f;
+    transform: translateY(-1px);
+  }
+  
+  .tour-btn:disabled {
+    background: #5c5240;
+    color: #8a7f68;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  #tour-progress {
+    font-size: 12px;
+    color: #8a7f68;
+    font-family: monospace;
+  }
+
+  /* Control Buttons */
+  #start-tour {
+    position: fixed; 
+    bottom: 28px; 
+    left: 50%; 
+    transform: translateX(-50%);
+    background: linear-gradient(145deg, #8B6914, #6b4f0f);
+    color: #f5f0e1; 
+    border: none; 
+    padding: 14px 32px;
+    border-radius: 999px; 
+    font-size: 15px; 
+    font-weight: 600;
+    cursor: pointer; 
+    z-index: 1001;
+    box-shadow: 0 8px 25px rgba(139, 105, 20, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  #start-tour:hover {
+    box-shadow: 0 12px 35px rgba(139, 105, 20, 0.7);
+    transform: translateX(-50%) translateY(-2px);
+  }
+
+  /* Coordinate Picker */
+  #coord-picker {
+    position: fixed;
+    bottom: 95px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 14, 10, 0.92);
+    color: #e8d5a3;
+    padding: 8px 18px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-family: monospace;
+    z-index: 1001;
+    white-space: nowrap;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid #5c5240;
+  }
+  
+  #coord-picker.active { display: flex; }
+  
+  #coord-value {
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  
+  #coord-copy {
+    background: #5c5240;
+    border: none;
+    color: #e8d5a3;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  #coord-copy:hover { background: #8B6914; color: white; }
+
+  #picker-toggle {
+    position: fixed;
+    bottom: 28px;
+    right: 24px;
+    background: #2a2722;
+    color: #e8d5a3;
+    border: 1px solid #5c5240;
+    padding: 9px 18px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  #picker-toggle.on { 
+    background: #8B6914; 
+    border-color: #8B6914; 
+    color: white; 
+  }
+
+  body.picking { cursor: crosshair; }
+/* Authoring tools — disabled on the public site; coord picking lives on its own page */
+  #picker-toggle, #coord-picker { display: none; }
+
+  /* Tap-to-enlarge image lightbox */
+  #panel img { cursor: zoom-in; }
+  #img-lightbox {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 2000;
+    cursor: zoom-out;
+  }
+  #img-lightbox.open { display: flex; }
+  #img-lightbox img { max-width: 94vw; max-height: 82vh; border-radius: 10px; }
+  /* ── Mobile: panel becomes a bottom sheet (≤700px) ── */
+  @media (max-width: 700px) {
+    #panel {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      width: auto;
+      max-height: 52vh;
+      border-radius: 16px 16px 0 0;
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+    }
+    #panel img { max-height: 120px; }
+    #panel { display: flex; flex-direction: column; }
+    
+    #start-tour {
+      bottom: 16px;
+      padding: 12px 24px;
+      font-size: 14px;
+    }
+    
+  }
+
+  .leaflet-tooltip {
+    background: rgba(20, 19, 16, 0.95) !important;
+    color: #e8d5a3 !important;
+    border: 1px solid #5c5240 !important;
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Coordinate Picker -->
+<div id="coord-picker">
+  <span>📍 Click to get coords:</span>
+  <span id="coord-value">—</span>
+  <button id="coord-copy" onclick="copyCoords()">Copy</button>
+</div>
+
+<button id="picker-toggle" onclick="togglePicker()">📍 Pick Coords</button>
+
+<!-- Start Tour Button -->
+<button id="start-tour" onclick="startGuidedTour()">
+  <span>▶</span> 
+  <span>Begin Guided Journey</span>
+</button>
+
+<!-- Info Panel -->
+<div id="panel">
+  <button id="close-panel" onclick="closePanel()">×</button>
+
+  <!-- Everything that can be tall lives in one scrolling region -->
+  <div id="panel-scroll">
+    <img id="panel-image" src="" alt="">
+    <h2 id="panel-title"></h2>
+    <p id="panel-text"></p>
+  </div>
+
+  <!-- Tour Navigation (hidden by default) — pinned below the scroll region -->
+  <div id="tour-nav" style="display: none;">
+    <button id="back-btn" class="tour-btn" onclick="prevTourStep()">
+      <span style="font-size: 16px;">←</span> Back
+    </button>
+    <div id="tour-progress"></div>
+    <button id="next-btn" class="tour-btn" onclick="nextTourStep()">
+      Next <span style="font-size: 16px;">→</span>
+    </button>
+  </div>
+</div>
+
+<div id="img-lightbox" onclick="this.classList.remove('open')">
+  <img id="img-lightbox-img" src="" alt="">
+</div>
+
+<script>
+// === BIRD MOTIFS DATA (from your original file) ===
+const motifs = [
+  { 
+    lat: 851.0, lng: 1948.5, 
+    label: "Garuda", 
+    subtitle: "Southeast Asia • Hindu-Buddhist",
+    image: "images/bird-feather/Garuda.png", 
+    text: "Mythical bird-like creature, vehicle of Vishnu. Symbol of power, solar energy, and divine kingship across Hindu and Buddhist traditions in Southeast Asia." 
+  },
+  { 
+    lat: 996.5, lng: 1525.0, 
+    label: "Nike", 
+    subtitle: "Ancient Greece • Victory",
+    image: "images/bird-feather/Nike.jpg", 
+    text: "Goddess of victory, almost always depicted with large sweeping wings. Her winged form became the prototype for later angelic imagery in Western religious art." 
+  },
+  { 
+    lat: 953.0, lng: 1714.0, 
+    label: "Seraphim", 
+    subtitle: "Abrahamic Traditions",
+    image: "images/bird-feather/Seraph_Jerusalem_YMCA.jpg", 
+    text: "Fiery six-winged celestial beings described in Isaiah 6. The highest order of angels in the Hebrew Bible, whose wings both enable flight and shield their divine radiance." 
+  },
+  { 
+    lat: 953.5, lng: 1767.0, 
+    label: "Apkallu", 
+    subtitle: "Mesopotamia • Assyrian",
+    image: "images/bird-feather/Apkallu_Nimrud.png", 
+    text: "Winged guardian figure from ancient Assyria, depicted as a hybrid human-bird sage. Symbol of divine wisdom, protection, and the transmission of sacred knowledge." 
+  }
+];
+
+let map;
+let currentTourIndex = 0;
+let isTourActive = false;
+let pickerActive = false;
+let lastCoords = null;
+
+// Initialize Leaflet Map
+function initMap() {
+  map = L.map('map', {
+    crs: L.CRS.Simple,
+    minZoom: -3,
+    maxZoom: 5,
+    zoomControl: true,
+    attributionControl: false
+  });
+
+  // Click handler for coordinate picker
+  map.on('click', function(e) {
+    if (!pickerActive) {
+      // Click-away: a bare map click closes the open panel
+      var panel = document.getElementById('panel');
+      if (panel.style.display === 'flex') closePanel();
+      return;
+    }
+    
+    const rawLat = e.latlng.lat.toFixed(1);
+    const rawLng = e.latlng.lng.toFixed(1);
+    const coords = rawLat + ', ' + rawLng;
+    lastCoords = coords;
+    document.getElementById('coord-value').textContent = coords;
+
+    // Visual feedback - temporary red dot
+    const dot = L.circleMarker([e.latlng.lat, e.latlng.lng], {
+      radius: 7, 
+      color: '#ff6b6b', 
+      fillColor: '#ff4444',
+      fillOpacity: 0.9, 
+      weight: 2
+    }).addTo(map);
+    
+    setTimeout(() => map.removeLayer(dot), 2800);
+  });
+
+  const imageUrl = "images/landing-giga.png";
+
+  const img = new Image();
+  img.onload = function() {
+    const bounds = [[0, 0], [img.height, img.width]];
+    L.imageOverlay(imageUrl, bounds).addTo(map);
+
+    // Add markers for each motif
+    const markerPositions = [];
+    
+    motifs.forEach((motif, index) => {
+      const marker = L.marker([motif.lat, motif.lng]).addTo(map);
+      
+      marker.bindTooltip(
+        `<b>${motif.label}</b><br><span style="font-size:11px;opacity:0.8">${motif.subtitle}</span>`, 
+        { direction: 'top', offset: [0, -8], className: 'custom-tooltip' }
+      );
+      
+      marker.on('click', function() {
+        // If tour is active, clicking a marker ends tour mode
+        if (isTourActive) {
+          isTourActive = false;
+          document.getElementById('tour-nav').style.display = 'none';
+          document.getElementById('start-tour').style.display = 'flex';
+        }
+        showPanel(motif, false);
+      });
+      
+      markerPositions.push([motif.lat, motif.lng]);
+    });
+
+    // Fit view to markers with nice padding
+    function fitView() {
+      map.invalidateSize();
+      if (markerPositions.length > 0) {
+        map.fitBounds(L.latLngBounds(markerPositions), { padding: [140, 160] });
+      } else {
+        map.fitBounds(bounds, { padding: [60, 60] });
+      }
+    }
+    fitView();
+
+    // If this page loaded inside a hidden/animating lightbox, Leaflet measured a
+    // zero-size container and drew nothing. Refit once the container gains real size.
+    let hadNoSize = map.getSize().x === 0 || map.getSize().y === 0;
+    new ResizeObserver(function() {
+      map.invalidateSize();
+      const s = map.getSize();
+      if (hadNoSize && s.x > 0 && s.y > 0) { fitView(); hadNoSize = false; }
+    }).observe(document.getElementById('map'));
+  };
+  
+  img.src = imageUrl;
+}
+
+// Show the information panel
+function showPanel(motif, isTourMode = false) {
+  document.getElementById('panel-image').src = motif.image;
+  document.getElementById('panel-title').innerHTML = 
+    `${motif.label} <span style="font-size:13px; font-weight:400; color:#8a7f68; display:block; margin-top:2px;">${motif.subtitle}</span>`;
+  document.getElementById('panel-text').textContent = motif.text;
+  document.getElementById('panel-scroll').scrollTop = 0;
+
+  const panel = document.getElementById('panel');
+  const tourNav = document.getElementById('tour-nav');
+  
+  panel.style.display = 'flex';
+
+  // Show/hide tour navigation
+  if (isTourMode) {
+    tourNav.style.display = 'flex';
+    updateTourProgress();
+  } else {
+    tourNav.style.display = 'none';
+  }
+}
+
+function closePanel() {
+  document.getElementById('panel').style.display = 'none';
+  isTourActive = false;
+  document.getElementById('tour-nav').style.display = 'none';
+  document.getElementById('start-tour').style.display = 'flex';
+}
+
+// === GUIDED TOUR ===
+function startGuidedTour() {
+  currentTourIndex = 0;
+  isTourActive = true;
+  document.getElementById('start-tour').style.display = 'none';
+  showTourStep();
+}
+
+function showTourStep() {
+  if (currentTourIndex >= motifs.length) {
+    closePanel();
+    isTourActive = false;
+    return;
+  }
+  
+  const motif = motifs[currentTourIndex];
+  showPanel(motif, true);
+  
+  // Fly to the motif location with nice animation.
+  // On small screens the bottom sheet covers the lower 45% of the map,
+  // so aim the marker at the center of the *visible* upper area instead.
+  const target = L.latLng(motif.lat, motif.lng);
+  const zoomLvl = 2.8;
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    const pt = map.project(target, zoomLvl);
+    pt.y += map.getSize().y * 0.26;
+    map.flyTo(map.unproject(pt, zoomLvl), zoomLvl, { duration: 2.2, easeLinearity: 0.25 });
+  } else {
+    map.flyTo(target, zoomLvl, { duration: 2.2, easeLinearity: 0.25 });
+  }
+}
+
+function nextTourStep() {
+  currentTourIndex++;
+  showTourStep();
+}
+
+function prevTourStep() {
+  if (currentTourIndex > 0) {
+    currentTourIndex--;
+    showTourStep();
+  }
+}
+
+function updateTourProgress() {
+  const progressEl = document.getElementById('tour-progress');
+  progressEl.textContent = `${currentTourIndex + 1} / ${motifs.length}`;
+  document.getElementById('back-btn').style.visibility =
+    currentTourIndex === 0 ? 'hidden' : 'visible';
+}
+
+// === COORDINATE PICKER ===
+function togglePicker() {
+  pickerActive = !pickerActive;
+  const btn = document.getElementById('picker-toggle');
+  const display = document.getElementById('coord-picker');
+  
+  if (pickerActive) {
+    btn.innerHTML = '✕ Stop Picking';
+    btn.classList.add('on');
+    display.classList.add('active');
+    document.body.classList.add('picking');
+  } else {
+    btn.innerHTML = '📍 Pick Coords';
+    btn.classList.remove('on');
+    display.classList.remove('active');
+    document.body.classList.remove('picking');
+  }
+}
+
+function copyCoords() {
+  if (!lastCoords) return;
+  
+  navigator.clipboard.writeText(lastCoords).then(() => {
+    const btn = document.getElementById('coord-copy');
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Copied';
+    btn.style.background = '#2e7d32';
+    
+    setTimeout(() => {
+      btn.textContent = originalText;
+      btn.style.background = '#5c5240';
+    }, 1600);
+  });
+}
+
+// Keyboard support (Escape to close panel)
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const panel = document.getElementById('panel');
+    if (panel.style.display === 'flex') {
+      closePanel();
+    } else if (pickerActive) {
+      togglePicker();
+    } else if (window.parent !== window) {
+      // Nothing left to close here — ask the parent page to close the story overlay
+      window.parent.postMessage('close-story', '*');
+    }
+  }
+  
+  if (e.key.toLowerCase() === 't' && document.getElementById('panel').style.display !== 'block') {
+    startGuidedTour();
+  }
+});
+
+// Tap the panel image to view it enlarged; tap anywhere on it to return
+document.getElementById('panel-image').addEventListener('click', function() {
+  document.getElementById('img-lightbox-img').src = this.src;
+  document.getElementById('img-lightbox').classList.add('open');
+});
+
+// Initialize everything
+window.onload = initMap;
+</script>
+</body>
+</html>

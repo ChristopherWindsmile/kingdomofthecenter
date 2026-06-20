@@ -1,0 +1,2107 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Portable Temple</title>
+<link rel="stylesheet" href="../assets/leaflet/leaflet.css" />
+  <script src="../assets/leaflet/leaflet.js"></script>
+<link rel="stylesheet" href="../site.css">
+<style>
+/* Guard: site.css makes .main-container a flex row for other pages;
+   this page's wrapper must stay a normal block. */
+.main-container { display: block; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f0e8d0; }
+
+/* ═══════════════════════════════════════════
+   SHARED
+═══════════════════════════════════════════ */
+#header {
+  background: #3c2f1f; color: #f0e8d0;
+  padding: 12px 18px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+#header h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
+
+#view-toggle {
+  display: flex; background: #5c4730; border-radius: 999px; padding: 3px; font-size: 11px; flex-shrink: 0;
+}
+#view-toggle button {
+  padding: 4px 12px; border: none; background: transparent;
+  color: #d4c4a8; border-radius: 999px; cursor: pointer;
+}
+#view-toggle button.active { background: #8B6914; color: white; font-weight: 600; }
+
+/* era strip — shared, styled differently per mode */
+#era-strip {
+  background: #3c2f1f;
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#era-strip::-webkit-scrollbar { display: none; }
+
+.era-btn {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  font-size: 11px; font-weight: 500;
+  color: #d4c4a8; background: transparent;
+  border: none; border-right: 1px solid #5c4730;
+  cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.era-btn:last-child { border-right: none; }
+.era-btn.active { background: #8B6914; color: white; }
+.era-btn:hover:not(.active) { background: #5c4730; }
+
+/* world reset row */
+#world-row {
+  background: #4a3828; padding: 5px 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+#world-btn {
+  font-size: 12px; color: #c8b060; background: none; border: none;
+  cursor: pointer; display: flex; align-items: center; gap: 5px;
+}
+#world-btn:hover { color: #f0e8d0; }
+#view-label-inline {
+  font-size: 11px; color: #a09070; margin-left: auto;
+}
+
+/* map container */
+#map-wrap { position: relative; }
+#map { width: 100%; }
+
+/* floating theme banner */
+#theme-banner {
+  display: none;
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: #3c2f1f; color: #f0e8d0;
+  padding: 6px 14px; border-radius: 999px; font-size: 11px;
+  z-index: 1001; white-space: nowrap;
+  align-items: center; gap: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+#theme-banner button {
+  background: rgba(255,255,255,0.15); border: none; color: #f0e8d0;
+  border-radius: 999px; padding: 2px 8px; font-size: 11px; cursor: pointer;
+}
+
+#random-btn {
+  background: #8B6914; color: white; border: none;
+  padding: 7px 12px; border-radius: 999px; font-size: 12px; cursor: pointer;
+  white-space: nowrap; display: flex; align-items: center; gap: 4px;
+}
+#random-btn:hover { background: #6b4f0f; }
+
+/* ═══════════════════════════════════════════
+   DESKTOP LAYOUT
+═══════════════════════════════════════════ */
+body.mode-desktop #app {
+  max-width: 1100px; margin: 20px auto;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+  border-radius: 16px; overflow: hidden;
+  border: 1px solid #d4c4a8;
+}
+body.mode-desktop #map { height: 480px; }
+body.mode-desktop #era-strip .era-btn { flex: 1; } /* stretch to fill on desktop */
+body.mode-desktop #site-list-section { display: none; }
+body.mode-desktop #world-row { display: none; }  /* breadcrumb is below map on desktop */
+body.mode-desktop #breadcrumb { display: block; }
+body.mode-desktop #desktop-controls { display: flex; align-items: center; gap: 8px; }
+
+/* desktop floating panel */
+#panel {
+  position: absolute; top: 50px; right: 12px; width: 270px;
+  background: #f8f1e3; border: 1px solid #c8b060; border-radius: 12px;
+  padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  z-index: 8800; display: none; max-height: 80%; overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE LAYOUT
+═══════════════════════════════════════════ */
+body.mode-mobile #app {
+  max-width: 100%; margin: 0;
+  display: flex; flex-direction: column;
+  height: 100dvh; /* fill viewport */
+  border-radius: 0; overflow: hidden;
+}
+body.mode-mobile #map { height: 46dvh; min-height: 230px; }
+body.mode-mobile #site-list-section {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: auto; background: #f8f1e3; position: relative;
+}
+body.mode-mobile #breadcrumb { display: none; }
+body.mode-mobile #desktop-controls { display: none !important; }
+body.mode-mobile #panel { display: none !important; } /* panel replaced by site list on mobile */
+
+/* Tiled mobile layout: panel above, full map below, page scrolls */
+body.mode-mobile #app { height: auto; overflow: visible; }
+body.mode-mobile #map { height: 52dvh; min-height: 260px; margin: 0 14px; }
+body.mode-mobile #site-list-section { overflow: visible; }
+body.mode-mobile #mobile-detail {
+  position: static;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+  border-bottom: 2px solid #c8b060;
+}
+body.mode-mobile #mobile-detail-backdrop { display: none !important; }
+@media (max-width: 768px) {
+  #era-strip {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+  .era-btn {
+    flex: 1 1 33.333%;
+    white-space: normal;
+    text-align: center;
+    border-bottom: 1px solid #5c4730;
+  }
+  #browse-drawer {
+    position: relative;
+    z-index: 300;
+  }
+}
+
+/* Site list (mobile only) */
+#site-list-header {
+  padding: 8px 14px 6px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: #8B6914;
+  border-bottom: 1px solid #d4c4a8;
+  display: flex; align-items: center; justify-content: space-between;
+}
+#site-list-count { font-weight: 400; color: #a09070; }
+#site-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#mobile-detail-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(20, 12, 5, 0.28);
+  z-index: 7998;
+}
+
+.site-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid #ede3d0;
+  cursor: pointer; transition: background 0.12s;
+}
+.site-row:hover, .site-row.selected { background: #ede3d0; }
+.site-row.dimmed { opacity: 0.25; }
+.site-row-emoji { font-size: 22px; flex-shrink: 0; padding-top: 1px; }
+.site-row-main { flex: 1; min-width: 0; }
+.site-row-label { font-size: 13px; font-weight: 600; color: #3c2f1f; }
+.site-row-era { font-size: 10px; color: #8B6914; margin-top: 1px; }
+.site-row-body { font-size: 11px; color: #6a5a40; margin-top: 3px; line-height: 1.4;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Mobile detail sheet — fixed bottom sheet with backdrop */
+#mobile-detail {
+  display: none;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #f8f1e3; border-top: 2px solid #c8b060;
+  border-radius: 16px 16px 0 0;
+  max-height: min(50dvh, 420px); overflow-y: auto;
+  z-index: 7999; padding: 16px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.22);
+  -webkit-overflow-scrolling: touch;
+}
+#mobile-detail.open { display: block; }
+  #mobile-detail img { max-width: 100%; height: auto; }
+#mobile-detail * { max-width: 100%; box-sizing: border-box; }
+#mobile-detail-close {
+  position: sticky; top: 0; float: right; font-size: 22px; line-height: 1;
+  background: #f8f1e3; border: none; color: #8B6914; cursor: pointer; z-index: 2;
+  padding: 0 0 6px 6px;
+}
+#mobile-detail-era { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #8B6914; margin-bottom: 2px; clear: both; }
+#mobile-detail-icon { font-size: 40px; text-align: center; margin: 6px 0; }
+#mobile-detail-title { font-size: 16px; font-weight: 700; color: #3c2f1f; margin-bottom: 4px; }
+#mobile-detail-body { font-size: 13px; line-height: 1.55; color: #4a3f2e; margin: 8px 0; }
+#mobile-detail-connections strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #8B6914; }
+#mobile-detail-tags { margin-top: 6px; }
+
+/* shared tag styles */
+.conn-tag {
+  display: inline-block; background: #e8d9b8; color: #5a4010;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px;
+  margin: 3px 4px 3px 0; cursor: pointer; border: 1px solid #c8b060; transition: all 0.2s;
+}
+.conn-tag:hover { background: #c8b060; color: #3c2f1f; }
+.conn-tag.active-theme { background: #8B6914; color: white; border-color: #6b4f0f; }
+
+/* theme drawer (shared, appears in panel on desktop, mobile-detail on mobile) */
+#theme-drawer, #mobile-theme-drawer {
+  display: none; margin-top: 10px;
+  border-top: 1px solid #d4c4a8; padding-top: 10px;
+}
+.theme-drawer-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: #8B6914; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.theme-drawer-title button {
+  font-size: 11px; background: none; border: none; color: #8B6914; cursor: pointer; text-decoration: underline;
+}
+.theme-result-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 5px 4px; border-bottom: 1px solid #e8d9b8;
+  cursor: pointer; transition: background 0.12s; border-radius: 4px;
+}
+.theme-result-row:last-child { border-bottom: none; }
+.theme-result-row:hover { background: #e8d9b8; }
+.theme-result-emoji { font-size: 18px; flex-shrink: 0; }
+.theme-result-info { flex: 1; min-width: 0; }
+.theme-result-label { font-size: 12px; font-weight: 600; color: #3c2f1f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.theme-result-era { font-size: 10px; color: #8B6914; }
+
+/* desktop-only panel inner elements */
+#panel-close { font-size: 20px; color: #8B6914; background: none; border: none; cursor: pointer; float: right; line-height: 1; }
+#panel-era { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #8B6914; margin-bottom: 2px; clear: both; }
+#panel-icon { font-size: 46px; text-align: center; margin: 6px 0; }
+#panel-title { font-size: 15px; font-weight: 700; color: #3c2f1f; margin-bottom: 4px; }
+#panel-body { font-size: 12px; line-height: 1.5; color: #4a3f2e; margin: 8px 0; }
+#panel-connections { margin-top: 10px; }
+#panel-connections strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #8B6914; }
+#panel-tags { margin-top: 6px; }
+#breadcrumb { background: #4a3828; padding: 6px 16px; font-size: 12px; color: #d4c4a8; }
+
+  /* ── Nav buttons ── */
+  .nav-btn {
+    background: transparent; color: #f0e8d0;
+    border: 1px solid #5c4730; padding: 5px 12px;
+    border-radius: 999px; font-size: 11px; cursor: pointer;
+    white-space: nowrap; transition: background 0.15s;
+  }
+  .nav-btn:hover { background: #5c4730; }
+  .nav-btn.active { background: #8B6914; border-color: #8B6914; }
+
+  /* ── Browse drawer ── */
+  #browse-drawer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background: #f8f1e3;
+    border-top: 0px solid #c8b060;
+    flex-direction: column;
+    display: flex;
+  }
+  #browse-drawer.open {
+    max-height: 320px;
+    border-top: 2px solid #c8b060;
+  }
+  #browse-list {
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    flex: 1;
+  }
+  .browse-era-heading {
+    padding: 6px 14px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #8B6914;
+    background: #f0e8d0; border-bottom: 0.5px solid #d4c4a8;
+    position: sticky; top: 0;
+  }
+  .browse-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; border-bottom: 0.5px solid #e8d9b8;
+    cursor: pointer; transition: background 0.12s;
+    font-size: 12px; color: #3c2f1f;
+  }
+  .browse-row:hover { background: #e8d9b8; }
+  .browse-row-left { display: flex; align-items: center; gap: 8px; }
+  .browse-row-emoji { font-size: 18px; flex-shrink: 0; }
+  .browse-row-label { font-weight: 500; }
+  .browse-row-sub { font-size: 10px; color: #8B6914; margin-top: 1px; }
+  .browse-row-right { font-size: 10px; color: #8B6914; flex-shrink: 0; margin-left: 8px; }
+  .browse-theme-count {
+    background: #e8d9b8; color: #5a4010;
+    padding: 2px 8px; border-radius: 999px; font-size: 10px;
+  }
+  #browse-close-row {
+    padding: 5px 14px; border-top: 1px solid #d4c4a8;
+    display: flex; justify-content: flex-end; flex-shrink: 0;
+    background: #f8f1e3;
+  }
+  #browse-close-btn {
+    font-size: 11px; color: #8B6914; background: none; border: none;
+    cursor: pointer; text-decoration: underline;
+  }
+
+
+  /* ── Story lightbox ── */
+  #story-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 20, 10, 0.85);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+  }
+  #story-overlay.open { display: flex; }
+
+  #story-box {
+    position: relative;
+    width: 92vw;
+    height: 88dvh;
+    max-width: 1100px;
+    background: #1a1208;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 768px) {
+    #story-overlay.open { align-items: flex-start; }
+    #story-box {
+      width: 100vw;
+      height: 100svh;
+      max-width: none;
+      border-radius: 0;
+    }
+  }
+
+  #story-header {
+    background: #3c2f1f;
+    color: #f0e8d0;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 12px;
+  }
+  #story-title {
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #story-close {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: #f0e8d0;
+    font-size: 18px;
+    line-height: 1;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #story-close:hover { background: rgba(255,255,255,0.25); }
+
+  #story-iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+  }
+
+  #story-loading {
+    position: absolute;
+    inset: 50px 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #d4c4a8;
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  /* ── Mobile nav strip ── */
+  #mobile-nav-strip {
+    display: none;
+    background: #4a3828;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-shrink: 0;
+  }
+  #mobile-nav-strip::-webkit-scrollbar { display: none; }
+  #mobile-nav-strip .nav-btn {
+    flex-shrink: 0;
+    border-radius: 999px;
+    margin: 6px 4px 6px 0;
+    font-size: 11px;
+  }
+  #mobile-nav-strip .nav-btn:first-child { margin-left: 12px; }
+  #mobile-nav-strip .nav-btn:last-child { margin-right: 12px; }
+
+  body.mode-mobile #mobile-nav-strip { display: flex; align-items: center; }
+  body.mode-mobile #desktop-controls { display: none; }
+  body.mode-mobile #header { gap: 8px; }
+
+  /* ── Deep Dive panel ── */
+  #deepdive-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 8000;
+    background: rgba(30, 20, 10, 0.85);
+  }
+  #deepdive-overlay.open { display: block; }
+
+  #deepdive-panel {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 44%;
+    min-width: 320px;
+    max-width: 620px;
+    background: #f8f1e3;
+    border-left: 2px solid #c8b060;
+    display: flex;
+    flex-direction: column;
+    pointer-events: all;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.18);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+  #deepdive-overlay.open #deepdive-panel {
+    transform: translateX(0);
+  }
+
+  #deepdive-header {
+    background: #3c2f1f;
+    color: #f0e8d0;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  #deepdive-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #deepdive-close {
+    background: rgba(255,255,255,0.12);
+    border: none; color: #f0e8d0;
+    font-size: 16px; line-height: 1;
+    width: 26px; height: 26px;
+    border-radius: 50%; cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #deepdive-close:hover { background: rgba(255,255,255,0.25); }
+
+  #deepdive-content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #f8f1e3;
+  }
+  #deepdive-loading {
+    padding: 40px;
+    text-align: center;
+    color: #8B6914;
+    font-size: 13px;
+    font-style: italic;
+  }
+  #deepdive-body {
+    padding: 28px 32px 40px;
+    max-width: 680px;
+    margin: 0 auto;
+    display: none;
+  }
+  /* Style the injected Google Doc content */
+  #deepdive-body h1, #deepdive-body h2, #deepdive-body h3 {
+    font-family: Georgia, serif;
+    color: #3c2f1f;
+    margin: 1.4em 0 0.5em;
+    line-height: 1.3;
+  }
+  #deepdive-body h1 { font-size: 22px; border-bottom: 1px solid #d4c4a8; padding-bottom: 8px; margin-top: 0; }
+  #deepdive-body h2 { font-size: 17px; }
+  #deepdive-body h3 { font-size: 14px; color: #8B6914; text-transform: uppercase; letter-spacing: 0.05em; }
+  #deepdive-body p {
+    font-family: Georgia, serif;
+    font-size: 14px;
+    line-height: 1.75;
+    color: #3c2f1f;
+    margin: 0 0 1em;
+  }
+  #deepdive-body ul, #deepdive-body ol {
+    padding-left: 1.5em;
+    margin: 0 0 1em;
+  }
+  #deepdive-body li {
+    font-family: Georgia, serif;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #3c2f1f;
+    margin-bottom: 0.4em;
+  }
+  #deepdive-body a { color: #8B6914; }
+  #deepdive-body img { max-width: 100%; border-radius: 6px; margin: 12px 0; }
+  #deepdive-body hr { border: none; border-top: 1px solid #d4c4a8; margin: 24px 0; }
+  /* Hide Google Docs chrome that bleeds through */
+  #deepdive-body .googledoc-header,
+  #deepdive-body #header, #deepdive-body #footer,
+  #deepdive-body .kix-appview-editor { display: none !important; }
+
+  /* Shrink map when deepdive open on desktop */
+  body.deepdive-open #map-wrap {
+    margin-right: 44%;
+  }
+  body.deepdive-open #map-wrap { transition: margin 0.3s ease; }
+
+  @media (max-width: 768px) {
+    #deepdive-overlay {
+      z-index: 9500; /* above everything on mobile */
+    }
+    #deepdive-panel {
+      position: fixed;
+      top: auto;
+      left: 0; right: 0; bottom: 0;
+      width: 100%;
+      max-width: 100%;
+      height: 75dvh;
+      border-left: none;
+      border-top: 2px solid #c8b060;
+      border-radius: 16px 16px 0 0;
+      transform: translateY(100%);
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.25);
+    }
+    #deepdive-overlay.open #deepdive-panel {
+      transform: translateY(0);
+    }
+    body.deepdive-open #map-wrap { margin-right: 0; }
+    body.deepdive-open #map { height: 30dvh !important; }
+  }
+
+  /* ── Learn More slideshow panel ── */
+  #learnmore-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 8500;
+    background: rgba(30, 20, 10, 0.85);
+  }
+  #learnmore-overlay.open { display: block; }
+
+  #learnmore-panel {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 42%;
+    min-width: 320px;
+    max-width: 580px;
+    background: #f8f1e3;
+    border-left: 2px solid #c8b060;
+    display: flex;
+    flex-direction: column;
+    pointer-events: all;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.35);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+  #learnmore-overlay.open #learnmore-panel {
+    transform: translateX(0);
+  }
+
+  #learnmore-header {
+    background: #3c2f1f;
+    color: #f0e8d0;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+  #learnmore-title {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #learnmore-close {
+    background: rgba(255,255,255,0.12);
+    border: none; color: #f0e8d0;
+    font-size: 16px; line-height: 1;
+    width: 26px; height: 26px;
+    border-radius: 50%; cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #learnmore-close:hover { background: rgba(255,255,255,0.25); }
+
+  /* Image fills the top portion */
+  #learnmore-image-wrap {
+    position: relative;
+    flex-shrink: 0;
+    background: #0d0a06;
+    overflow: hidden;
+  }
+  #learnmore-img {
+    display: block;
+    width: 100%;
+    height: 300px;
+    object-fit: cover;
+    transition: opacity 0.3s ease;
+  }
+  #learnmore-img.fade { opacity: 0; }
+
+  /* Step counter badge over image */
+  #learnmore-counter {
+    position: absolute;
+    bottom: 10px; right: 12px;
+    background: rgba(0,0,0,0.6);
+    color: #d4c4a8;
+    font-size: 10px;
+    font-family: monospace;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+
+  /* Caption area */
+  #learnmore-caption {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 22px;
+    -webkit-overflow-scrolling: touch;
+  }
+  #learnmore-caption-text {
+    font-family: Georgia, serif;
+    font-size: 14px;
+    line-height: 1.75;
+    color: #3c2f1f;
+  }
+  #learnmore-caption-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #8B6914;
+    margin-bottom: 8px;
+  }
+
+  /* Prev / Next nav bar */
+  #learnmore-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid #d4c4a8;
+    flex-shrink: 0;
+    background: #f8f1e3;
+  }
+  .lm-nav-btn {
+    background: #3c2f1f;
+    border: 1px solid #5c4730;
+    color: #d4c4a8;
+    font-size: 13px;
+    padding: 7px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .lm-nav-btn:hover:not(:disabled) { background: #5c4730; color: #f0e8d0; }
+  .lm-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  #learnmore-step-dots {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .lm-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #5c4730; transition: background 0.2s;
+    cursor: pointer;
+  }
+  .lm-dot.active { background: #c8b060; }
+
+  /* Shrink map when learnmore open on desktop */
+  body.learnmore-open #map-wrap { margin-right: 42%; transition: margin 0.3s ease; }
+
+  @media (max-width: 768px) {
+    #learnmore-overlay { z-index: 9600; }
+    #learnmore-panel {
+      position: fixed;
+      top: auto; left: 0; right: 0; bottom: 0;
+      width: 100%; max-width: 100%;
+      height: 80dvh;
+      border-left: none;
+      border-top: 2px solid #c8b060;
+      border-radius: 16px 16px 0 0;
+      transform: translateY(100%);
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.35);
+    }
+    #learnmore-overlay.open #learnmore-panel { transform: translateY(0); }
+    body.learnmore-open #map-wrap { margin-right: 0; }
+    body.learnmore-open #map { height: 30dvh !important; }
+    #learnmore-img { height: 220px; }
+  }
+</style>
+<script>
+(function() {
+  var mode = window.innerWidth <= 768 ? 'mobile' : 'desktop';
+  function applyMode() {
+    if (document.body) {
+      document.body.classList.remove('mode-desktop', 'mode-mobile');
+  document.body.classList.add('mode-' + mode);
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
+        document.body.className = 'mode-' + mode;
+      });
+    }
+  }
+  applyMode();
+})();
+</script>
+</head>
+<body>
+
+
+
+<div class="main-container" style="max-width: 1200px; margin: 0 auto; padding: 1rem;">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb" style="margin-bottom: 1.5rem; font-size: 0.95rem;">
+    <a href="../index.html">Home</a> &gt; 
+    <strong>The Portable Temple</strong>
+  </div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <h1>🕍 The Portable Temple</h1>
+    <div id="desktop-controls" style="display:flex; align-items:center; gap:8px;">
+      <button class="nav-btn" id="nav-era" onclick="openDrawer('era')">By Era</button>
+      <button class="nav-btn" id="nav-theme" onclick="openDrawer('theme')">By Theme</button>
+      <button class="nav-btn" id="nav-random" onclick="randomDiscovery()">🎲 Random Discovery</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+      <div id="view-toggle">
+        <button onclick="setViewMode('desktop')" class="active" id="btn-desktop">Desktop</button>
+        <button onclick="setViewMode('mobile')" id="btn-mobile">Mobile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERA STRIP (always visible, scrollable) -->
+  <div id="era-strip"></div>
+
+  <!-- WORLD ROW (mobile only) -->
+  <div id="world-row">
+    <button id="world-btn" onclick="goWorld()">🌍 Reset to World</button>
+    <span id="view-label-inline">—</span>
+  </div>
+
+  <!-- MOBILE NAV STRIP -->
+  <div id="mobile-nav-strip">
+    <button class="nav-btn" id="mnav-era" onclick="openDrawer('era')">By Era</button>
+    <button class="nav-btn" id="mnav-theme" onclick="openDrawer('theme')">By Theme</button>
+    <button class="nav-btn" onclick="randomDiscovery()">🎲 Random Discovery</button>
+  </div>
+
+  <!-- MAP + FLOATING ELEMENTS -->
+  <div id="map-wrap">
+    <div id="mobile-detail-backdrop" onclick="closeMobileDetail()"></div>
+
+    <!-- Mobile detail sheet -->
+    <div id="mobile-detail">
+      <button id="mobile-detail-close" onclick="closeMobileDetail()">×</button>
+      <div id="mobile-detail-era"></div>
+      <div id="mobile-detail-icon"></div>
+      <div id="mobile-detail-title"></div>
+      <div id="mobile-detail-body"></div>
+      <div id="mobile-detail-connections">
+        <strong>Shared themes</strong>
+        <div id="mobile-detail-tags"></div>
+      </div>
+      <div id="mobile-theme-drawer">
+        <div class="theme-drawer-title">
+          <span id="mobile-theme-drawer-label"></span>
+          <button onclick="clearThemeFilter()">← Back</button>
+        </div>
+        <div id="mobile-theme-drawer-list"></div>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div id="view-label" style="position:absolute;top:10px;left:10px;z-index:999;background:rgba(60,47,31,0.88);color:#f0e8d0;padding:4px 12px;border-radius:999px;font-size:11px;"></div>
+
+    <!-- theme banner floats over map -->
+    <div id="theme-banner">
+      <span id="theme-banner-text"></span>
+      <button onclick="clearThemeFilter()">✕ Clear</button>
+    </div>
+
+    <!-- DESKTOP floating panel (hidden on mobile) -->
+    <div id="panel">
+      <button id="panel-close" onclick="closePanel()">×</button>
+      <div id="panel-era"></div>
+      <div id="panel-icon"></div>
+      <div id="panel-title"></div>
+      <div id="panel-body"></div>
+      <div id="panel-connections">
+        <strong>Shared themes</strong>
+        <div id="panel-tags"></div>
+      </div>
+      <div id="theme-drawer">
+        <div class="theme-drawer-title">
+          <span id="theme-drawer-label"></span>
+          <button onclick="clearThemeFilter()">← Back</button>
+        </div>
+        <div id="theme-drawer-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DESKTOP breadcrumb / search row -->
+  <div id="breadcrumb"><span onclick="goWorld()" style="cursor:pointer;color:#c8b060;">🌍 World</span></div>
+
+  <!-- MOBILE: search + site list section -->
+  <div id="site-list-section">
+
+    <div id="site-list-header">
+      <span id="site-list-title">Sites in this era</span>
+      <span id="site-list-count"></span>
+    </div>
+    <div id="site-list"></div>
+
+  </div>
+
+  <!-- Browse drawer -->
+  <div id="browse-drawer">
+    <div id="browse-list"></div>
+    <div id="browse-close-row">
+      <button id="browse-close-btn" onclick="closeDrawer()">Close ✕</button>
+    </div>
+  </div>
+
+  <!-- Learn More slideshow overlay -->
+  <div id="learnmore-overlay" onclick="closeLearnMore(event)">
+    <div id="learnmore-panel">
+      <div id="learnmore-header">
+        <span id="learnmore-title">Learn More</span>
+        <button id="learnmore-close" onclick="closeLearnMore()">✕</button>
+      </div>
+      <div id="learnmore-image-wrap">
+        <img id="learnmore-img" src="" alt="">
+        <span id="learnmore-counter"></span>
+      </div>
+      <div id="learnmore-caption">
+        <div id="learnmore-caption-label"></div>
+        <div id="learnmore-caption-text"></div>
+      </div>
+      <div id="learnmore-nav">
+        <button class="lm-nav-btn" id="lm-prev" onclick="lmChangeSlide(-1)">← Prev</button>
+        <div id="learnmore-step-dots"></div>
+        <button class="lm-nav-btn" id="lm-next" onclick="lmChangeSlide(1)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Story lightbox overlay -->
+  <div id="story-overlay" onclick="closeStory(event)">
+    <div id="story-box">
+      <div id="story-header">
+        <span id="story-title">Loading story…</span>
+        <button id="story-close" onclick="closeStoryDirect()" aria-label="Close">×</button>
+      </div>
+      <div id="story-loading">Loading StoryMap…</div>
+      <iframe id="story-iframe" src="" allowfullscreen
+        onload="document.getElementById('story-loading').style.display='none'">
+      </iframe>
+    </div>
+  </div>
+
+  <!-- Deep Dive panel -->
+  <div id="deepdive-overlay" onclick="closeDeepDive(event)">
+    <div id="deepdive-panel">
+      <div id="deepdive-header">
+        <span id="deepdive-title">Deep Dive</span>
+        <button id="deepdive-close" onclick="closeDeepDive()" aria-label="Close">×</button>
+      </div>
+      <div id="deepdive-content">
+        <div id="deepdive-loading">Loading…</div>
+        <div id="deepdive-body"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+
+</div> <!-- end main-container -->
+
+<div id="site-footer"></div>
+
+<script src="../nav.js"></script>
+<script src="../site-utils.js"></script>
+<script>
+// ═══════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════
+const SITES_URL    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKhiJxqvYjj9B6UgtnliVquofa0SI0zvgoZxdo10bFJmvSTtN8mGsKIrlGnrDT1Q2Qz8GGQDqOY3vy/pub?gid=1826425502&single=true&output=csv";
+const THEMES_URL   = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQKhiJxqvYjj9B6UgtnliVquofa0SI0zvgoZxdo10bFJmvSTtN8mGsKIrlGnrDT1Q2Qz8GGQDqOY3vy/pub?gid=2071199273&single=true&output=csv";
+const STATIC_SITES_URL  = "data/sites.csv";    // ported / stabilized sites
+const STATIC_THEMES_URL = "data/themes.csv";   // ported / stabilized themes
+
+const ERAS = [
+  {id:'5000bc',  label:'5000–1200 BCE'}, {id:'1200bc', label:'1200–500 BCE'},
+  {id:'500bc',   label:'500 BCE–1 AD'},  {id:'1ad',    label:'1–400 AD'},
+  {id:'400ad',   label:'400–800 AD'},    {id:'800ad',  label:'800–1000 AD'},
+  {id:'1000ad',  label:'1000–1200 AD'},  {id:'1200ad', label:'1200–1400 AD'},
+  {id:'1400ad',  label:'1400–1500 AD'},  {id:'1500ad', label:'1500 AD+'}
+];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let NODES = {}, THEMES = {};
+let map;
+let currentEra = '1000ad';
+let allMarkers = [];        // [{marker, node}]
+let activeTheme = null;
+let currentPanelNode = null;
+let currentMode = 'desktop';
+let searchQuery = '';
+let lastRandomId = null; // prevent same site twice in a row
+
+// ═══════════════════════════════════════════
+// CSV
+// ═══════════════════════════════════════════
+function parseCSV(text, skipRows=0) {
+  // RFC-4180: correctly handles commas, quotes, and NEWLINES inside quoted fields.
+  const rows = []; let row = [], cur = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+      else cur += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ',') { row.push(cur); cur = ''; }
+      else if (ch === '\r') { /* ignore CR */ }
+      else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else cur += ch;
+    }
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  const data = rows.slice(skipRows);
+  if (!data.length) return [];
+  const headers = data[0].map(h => h.trim());
+  return data.slice(1).map(vals => {
+    const obj = {};
+    headers.forEach((h,i) => obj[h] = (vals[i] != null ? vals[i].trim() : ''));
+    return obj;
+  }).filter(obj => Object.values(obj).some(v => v.trim && v.trim() !== ''));
+}
+
+// Fetch a CSV URL and parse it; returns [] if the file is missing or the
+// request fails, so a not-yet-created static file never injects garbage.
+async function fetchCSVRows(url, skip) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    return parseCSV(await r.text(), skip);
+  } catch (e) {
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════
+// LOAD
+// ═══════════════════════════════════════════
+async function loadData() {
+  try {
+    const themeRows = [].concat(
+      await fetchCSVRows(THEMES_URL, 1),
+      await fetchCSVRows(STATIC_THEMES_URL, 1)
+    );
+    THEMES = {};
+    themeRows.forEach(t => {
+      if (t.id) THEMES[t.id.trim()] = {
+        label:        t.label        ? t.label.trim()        : t.id.trim(),
+        story_url:    t.story_url    ? t.story_url.trim()    : '',
+        deepdive_url: t.deepdive_url ? t.deepdive_url.trim() : ''
+      };
+    });
+
+    const sitesData = [].concat(
+      await fetchCSVRows(SITES_URL, 1),
+      await fetchCSVRows(STATIC_SITES_URL, 1)
+    );
+    NODES = {};
+    sitesData.forEach(s => {
+      if (!s.region || !s.era) return;
+      const lat = parseFloat(s.lat), lng = parseFloat(s.lng);
+      if (isNaN(lat) || isNaN(lng)) return;
+      if (!NODES[s.region]) NODES[s.region] = {};
+      if (!NODES[s.region][s.era]) NODES[s.region][s.era] = [];
+      NODES[s.region][s.era].push({
+        id:           s.id,
+        lat:          lat,
+        lng:          lng,
+        label:        s.display_name || s.label || s.id,
+        ancient_name: s.ancient_name || '',
+        modern_name:  s.modern_name  || '',
+        emoji:        s.emoji        || '📍',
+        era:          s.era,
+        body:         s.body         || '',
+        themes:       s.themes ? s.themes.split(';').map(t=>t.trim()).filter(Boolean) : [],
+        story_url:    s.story_url    || '',
+        deepdive_url: s.deepdive_url || '',
+        image_url:    s.image_url    || '',
+        type:         'site'
+      });
+    });
+// Learn More sequences — consolidated JSON, keyed by site id.
+    // Non-fatal: if the file is missing, the buttons simply don't appear.
+    try {
+      const lmRes = await fetch('data/learn-more.json');
+      if (lmRes.ok) LEARN_MORE_STEPS = await lmRes.json();
+    } catch (e) {
+      console.warn('Learn More data not loaded:', e);
+    }
+    console.log('Data loaded:', Object.keys(THEMES).length, 'themes,', Object.keys(NODES).length, 'regions');
+    initMap();
+  } catch(err) {
+    console.error('loadData error:', err);
+    alert('Failed to load data. Check console for details.');
+  }
+}
+
+// ═══════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════
+function initMap() {
+  map = L.map('map', { center:[20,10], zoom:2, minZoom:1, maxZoom:9, zoomSnap:0.25 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains:'abc', maxZoom:9, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+
+  // Build era strip
+  const strip = document.getElementById('era-strip');
+  ERAS.forEach(e => {
+    const btn = document.createElement('button');
+    btn.className = 'era-btn' + (e.id === currentEra ? ' active' : '');
+    btn.id = 'ebtn-' + e.id;
+    btn.textContent = e.label;
+    btn.onclick = () => setEra(e.id);
+    strip.appendChild(btn);
+  });
+
+  setEra(currentEra);
+  map.on('click', function() {
+    if (currentMode === 'mobile') {
+      closeMobileDetail();
+      closeDrawer();
+    } else {
+      closePanel();
+      closeDrawer();
+    }
+  });
+}
+
+
+function makeIcon(emoji, size=36, isImage=false, dimmed=false) {
+  const op = dimmed ? '0.2' : '1';
+  if (isImage && emoji && emoji.trim()) {
+    return L.divIcon({
+      html:`<img src="${escapeHTML(emoji)}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:50%;border:2px solid #8B6914;box-shadow:0 2px 6px rgba(0,0,0,0.4);opacity:${op};">`,
+      className:'', iconAnchor:[size/2,size/2], iconSize:[size,size]
+    });
+  }
+  return L.divIcon({
+    html:`<div style="font-size:${size}px;line-height:1;cursor:pointer;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.4));opacity:${op};">${escapeHTML(emoji)}</div>`,
+    className:'', iconAnchor:[size/2,size/2], iconSize:[size,size]
+  });
+}
+
+function clearMarkers() {
+  allMarkers.forEach(({marker}) => map.removeLayer(marker));
+  allMarkers = [];
+}
+function closeTransientUI(opts = {}) {
+  const preserveTheme = !!opts.preserveTheme;
+  closePanel();
+  closeMobileDetail();
+  closeDrawer();
+  const themeDrawer = document.getElementById('theme-drawer');
+  const mobileThemeDrawer = document.getElementById('mobile-theme-drawer');
+  if (themeDrawer) themeDrawer.style.display = 'none';
+  if (mobileThemeDrawer) mobileThemeDrawer.style.display = 'none';
+  if (!preserveTheme) clearThemeFilter(false);
+}
+function getCurrentWorldPadding() {
+  return currentMode === 'mobile' ? [16, 16] : [24, 24];
+}
+function getMobileBottomPadding() {
+  if (currentMode !== 'mobile') return 24;
+  const detail = document.getElementById('mobile-detail');
+  if (detail && detail.classList.contains('open')) {
+    return Math.max((detail.offsetHeight || 0) + 20, 140);
+  }
+  return 120;
+}
+function fitEraView(latLngs) {
+  if (!latLngs.length) {
+    map.fitWorld({ padding: getCurrentWorldPadding() });
+    return;
+  }
+  if (latLngs.length === 1) {
+    map.flyTo(latLngs[0], currentMode === 'mobile' ? 4.5 : 5, { duration: 0.7 });
+    return;
+  }
+  map.fitBounds(latLngs, {
+    paddingTopLeft: currentMode === 'mobile' ? [14, 14] : [24, 24],
+    paddingBottomRight: currentMode === 'mobile' ? [14, 14] : [24, 24],
+    maxZoom: currentMode === 'mobile' ? 2 : 4
+  });
+}
+function focusNodeOnMap(node, zoomLevel) {
+  const zoom = zoomLevel || (currentMode === 'mobile' ? 5 : 7);
+  map.flyTo([node.lat, node.lng], zoom, { duration: 1.0 });
+  map.once('moveend', function () {
+    map.panInside(L.latLng(node.lat, node.lng), {
+      paddingTopLeft: [20, 20],
+      paddingBottomRight: currentMode === 'mobile' ? [48, getMobileBottomPadding()] : [36, 36]
+    });
+  });
+}
+function bindCollapseOnOutsideClick() {
+  document.addEventListener('click', function(e) {
+    const detail = document.getElementById('mobile-detail');
+    const drawer = document.getElementById('browse-drawer');
+    const panel = document.getElementById('panel');
+    const storyOverlay = document.getElementById('story-overlay');
+    const isMobile = currentMode === 'mobile';
+    const inDetail = detail && detail.contains(e.target);
+    const inDrawer = drawer && drawer.contains(e.target);
+    const inPanel = panel && panel.contains(e.target);
+    const inStory = storyOverlay && storyOverlay.contains(e.target);
+    const lmOverlay = document.getElementById('learnmore-overlay');
+    const ddOverlay = document.getElementById('deepdive-overlay');
+    const inLearnMore = lmOverlay && lmOverlay.contains(e.target);
+    const inDeepDive = ddOverlay && ddOverlay.contains(e.target);
+    const isMarker = !!e.target.closest('.leaflet-marker-icon, .leaflet-marker-shadow');
+    const isControl = !!e.target.closest('#mobile-nav-strip, #desktop-controls, #era-strip, #world-row, #header, #breadcrumb, .leaflet-control-container');
+    if (inStory || inLearnMore || inDeepDive) return;
+    if (!isMobile && panel && panel.style.display === 'block' && !inPanel && !isMarker && !isControl) {
+      closePanel();
+    }
+    if (!isMobile && drawer && drawer.classList.contains('open') && !inDrawer && !isControl) {
+      closeDrawer();
+    }
+    if (isMobile) {
+      if (detail && detail.classList.contains('open') && !inDetail && !isMarker && !isControl) {
+        closeMobileDetail();
+      }
+      if (drawer && drawer.classList.contains('open') && !inDrawer && !isControl) {
+        closeDrawer();
+      }
+    }
+  }, true);
+}
+
+
+// ═══════════════════════════════════════════
+// ERA
+// ═══════════════════════════════════════════
+function setEra(id) {
+  currentEra = id;
+  document.querySelectorAll('.era-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('ebtn-' + id).classList.add('active');
+
+  closeTransientUI();
+  clearMarkers();
+
+  const label = ERAS.find(e=>e.id===id)?.label || id;
+  document.getElementById('view-label').textContent = label;
+  document.getElementById('view-label-inline').textContent = label;
+
+  const latLngs = [];
+
+  Object.keys(NODES).forEach(region => {
+    (NODES[region][id] || []).forEach(node => {
+      const m = L.marker([node.lat, node.lng], {icon: makeIcon(node.emoji, 40), keyboard: false}).addTo(map);
+      m.on('click', () => openNode(node));
+      allMarkers.push({marker:m, node});
+      latLngs.push([node.lat, node.lng]);
+    });
+  });
+
+  fitEraView(latLngs);
+  renderSiteList();
+}
+
+// ═══════════════════════════════════════════
+// OPEN NODE — routes to desktop or mobile detail
+// ═══════════════════════════════════════════
+function openNode(node) {
+  currentPanelNode = node;
+  closeTransientUI({ preserveTheme: true });
+  if (currentMode === 'mobile') {
+    openMobileDetail(node);
+    focusNodeOnMap(node, 5);
+  } else {
+    openPanel(node);
+    focusNodeOnMap(node, 7);
+  }
+}
+
+// ═══════════════════════════════════════════
+// DESKTOP PANEL
+// ═══════════════════════════════════════════
+function openPanel(node) {
+  document.getElementById('panel-era').textContent = node.era || '';
+  document.getElementById('panel-title').textContent = node.label;
+  // Ancient / modern name subtitle
+  const subtitle = [node.ancient_name, node.modern_name].filter(Boolean).join(' · ');
+  let bodyEl = document.getElementById('panel-body');
+  bodyEl.innerHTML = '';
+  if (subtitle) {
+    const sub = document.createElement('div');
+    sub.style.cssText = 'font-size:10px;color:#8B6914;margin-bottom:6px;font-style:italic;';
+    sub.textContent = subtitle;
+    bodyEl.appendChild(sub);
+  }
+  const bodyText = document.createElement('div');
+  bodyText.style.whiteSpace = 'pre-line';
+  bodyText.textContent = node.body;
+  bodyEl.appendChild(bodyText);
+  // Story URL link
+  const existingLink = document.getElementById('panel-story-link');
+  if (existingLink) existingLink.remove();
+  if (node.story_url && node.story_url.trim()) {
+    const link = document.createElement('button');
+    link.id = 'panel-story-link';
+    link.textContent = '📖 Read the story →';
+    link.style.cssText = 'display:block;margin-top:10px;font-size:11px;color:#f0e8d0;background:#8B6914;border:none;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;width:100%;text-align:left;';
+    link.onclick = function() { openStory(node.story_url, node.label); };
+    bodyEl.appendChild(link);
+  }
+  if (node.deepdive_url && node.deepdive_url.trim()) {
+    const dd = document.createElement('button');
+    dd.textContent = '📖 Deep Dive →';
+    dd.style.cssText = 'display:block;margin-top:6px;font-size:11px;color:#3c2f1f;background:#e8d9b8;border:1px solid #c8b060;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;width:100%;text-align:left;';
+    dd.onclick = function() { openDeepDive(node.deepdive_url, node.label); };
+    bodyEl.appendChild(dd);
+  }
+  if (LEARN_MORE_STEPS[node.id]) {
+    const lm = document.createElement('button');
+    lm.textContent = '🖼 Learn More →';
+    lm.style.cssText = 'display:block;margin-top:6px;font-size:11px;color:#f0e8d0;background:#4a3828;border:1px solid #8B6914;padding:6px 12px;border-radius:999px;cursor:pointer;font-weight:600;width:100%;text-align:left;';
+    lm.onclick = function() { openLearnMore(node.id, node.label); };
+    bodyEl.appendChild(lm);
+  }
+
+  const icon = document.getElementById('panel-icon');
+  icon.innerHTML = '';
+  if (node.image_url && node.image_url.trim()) {
+    icon.innerHTML = `<img src="${escapeHTML(node.image_url)}" style="max-width:100%;max-height:160px;border-radius:8px;object-fit:cover;border:1px solid #c8b060;">`;
+  } else {
+    icon.textContent = node.emoji || '📜';
+    icon.style.fontSize = '40px';
+  }
+
+  renderTags('panel-tags', node.themes, highlightTheme);
+  document.getElementById('panel-connections').style.display = '';
+  document.getElementById('theme-drawer').style.display = 'none';
+  document.getElementById('panel').style.display = 'block';
+}
+
+function closePanel() {
+  const panel = document.getElementById('panel');
+  const themeDrawer = document.getElementById('theme-drawer');
+  if (panel) panel.style.display = 'none';
+  if (themeDrawer) themeDrawer.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════
+// MOBILE DETAIL SHEET
+// ═══════════════════════════════════════════
+function openMobileDetail(node) {
+  const detail = document.getElementById('mobile-detail');
+  const detailEra = document.getElementById('mobile-detail-era');
+  const detailTitle = document.getElementById('mobile-detail-title');
+  const detailBody = document.getElementById('mobile-detail-body');
+  const detailIcon = document.getElementById('mobile-detail-icon');
+  const detailConnections = document.getElementById('mobile-detail-connections');
+  const mobileThemeDrawer = document.getElementById('mobile-theme-drawer');
+  const backdrop = document.getElementById('mobile-detail-backdrop');
+  if (!detail || !detailEra || !detailTitle || !detailBody || !detailIcon) return;
+
+  detailEra.textContent = node.era || '';
+  detailTitle.textContent = node.label;
+
+  const mSubtitle = [node.ancient_name, node.modern_name].filter(Boolean).join(' · ');
+  detailBody.innerHTML = '';
+  if (mSubtitle) {
+    const msub = document.createElement('div');
+    msub.style.cssText = 'font-size:10px;color:#8B6914;margin-bottom:6px;font-style:italic;';
+    msub.textContent = mSubtitle;
+    detailBody.appendChild(msub);
+  }
+
+  const mBodyText = document.createElement('div');
+  mBodyText.style.whiteSpace = 'pre-line';
+  mBodyText.textContent = node.body || '';
+  detailBody.appendChild(mBodyText);
+
+  const existingMLink = document.getElementById('mobile-story-link');
+  if (existingMLink) existingMLink.remove();
+  if (node.story_url && node.story_url.trim()) {
+    const mlink = document.createElement('button');
+    mlink.id = 'mobile-story-link';
+    mlink.textContent = '📖 Read the story →';
+    mlink.style.cssText = 'display:block;margin-top:10px;font-size:12px;color:#f0e8d0;background:#8B6914;border:none;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;width:100%;text-align:left;';
+    mlink.onclick = function(ev) { ev.stopPropagation(); openStory(node.story_url, node.label); };
+    detailBody.appendChild(mlink);
+  }
+  if (node.deepdive_url && node.deepdive_url.trim()) {
+    const mdd = document.createElement('button');
+    mdd.textContent = '📖 Deep Dive →';
+    mdd.style.cssText = 'display:block;margin-top:6px;font-size:12px;color:#3c2f1f;background:#e8d9b8;border:1px solid #c8b060;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;width:100%;text-align:left;';
+    mdd.onclick = function(ev) { ev.stopPropagation(); openDeepDive(node.deepdive_url, node.label); };
+    detailBody.appendChild(mdd);
+  }
+  if (LEARN_MORE_STEPS[node.id]) {
+    const mlm = document.createElement('button');
+    mlm.textContent = '🖼 Learn More →';
+    mlm.style.cssText = 'display:block;margin-top:6px;font-size:12px;color:#f0e8d0;background:#4a3828;border:1px solid #8B6914;padding:7px 14px;border-radius:999px;cursor:pointer;font-weight:600;width:100%;text-align:left;';
+    mlm.onclick = function(ev) { ev.stopPropagation(); openLearnMore(node.id, node.label); };
+    detailBody.appendChild(mlm);
+  }
+
+  detailIcon.innerHTML = '';
+  if (node.image_url && node.image_url.trim()) {
+    detailIcon.innerHTML = `<img src="${escapeHTML(node.image_url)}" style="max-width:100%;max-height:140px;border-radius:8px;object-fit:cover;border:1px solid #c8b060;display:block;margin:0 auto 8px;">`;
+  } else {
+    detailIcon.textContent = node.emoji || '📜';
+    detailIcon.style.fontSize = '36px';
+    detailIcon.style.textAlign = 'center';
+    detailIcon.style.margin = '6px 0';
+  }
+
+  renderTags('mobile-detail-tags', node.themes, highlightTheme);
+  if (detailConnections) detailConnections.style.display = '';
+  if (mobileThemeDrawer) mobileThemeDrawer.style.display = 'none';
+  if (backdrop) backdrop.style.display = 'block';
+
+  detail.style.display = 'block';
+  detail.classList.add('open');
+  detail.scrollTop = 0;
+  setTimeout(function() { detail.scrollIntoView({ block: 'start' }); }, 60);
+  // No body-scroll lock — the mobile layout is tiled and page-scrolls, so locking
+  // body overflow is what stopped you scrolling up to the panel text.
+
+  document.querySelectorAll('.site-row').forEach(r => r.classList.remove('selected'));
+  const row = document.querySelector(`.site-row[data-id="${node.id}"][data-era="${node.era}"]`);
+  if (row) {
+    row.classList.add('selected');
+    row.scrollIntoView({block:'nearest'});
+  }
+}
+function closeMobileDetail() {
+  const detail = document.getElementById('mobile-detail');
+  const backdrop = document.getElementById('mobile-detail-backdrop');
+  const mobileThemeDrawer = document.getElementById('mobile-theme-drawer');
+  if (detail) {
+    detail.classList.remove('open');
+    detail.style.display = 'none';
+  }
+  if (backdrop) backdrop.style.display = 'none';
+  if (mobileThemeDrawer) mobileThemeDrawer.style.display = 'none';
+  document.querySelectorAll('.site-row').forEach(r => r.classList.remove('selected'));
+  document.body.style.overflow = '';
+}
+
+// ═══════════════════════════════════════════
+// SITE LIST (mobile)
+// ═══════════════════════════════════════════
+function renderSiteList() {
+  const list = document.getElementById('site-list');
+  list.innerHTML = '';
+
+  const q = searchQuery.toLowerCase();
+
+  // If searching, span all eras so results aren't silently missing
+  let nodes;
+  if (q) {
+    nodes = getAllNodes().filter(n =>
+      (n.label||'').toLowerCase().includes(q) ||
+      (n.body||'').toLowerCase().includes(q) ||
+      (n.themes||[]).some(t => t.toLowerCase().includes(q))
+    );
+    document.getElementById('site-list-title').textContent = 'Search results (all eras)';
+  } else {
+    nodes = getNodesForEra(currentEra);
+    document.getElementById('site-list-title').textContent = 'Sites in this era';
+  }
+
+  document.getElementById('site-list-count').textContent = `${nodes.length} site${nodes.length!==1?'s':''}`;
+
+  if (nodes.length === 0) {
+    list.innerHTML = '<div style="padding:18px 14px;font-size:12px;color:#8B6914;font-style:italic;">No sites match.</div>';
+    return;
+  }
+
+  nodes.forEach(node => {
+    const row = document.createElement('div');
+    row.className = 'site-row' + (activeTheme && !node.themes.some(t=>t.toLowerCase()===activeTheme.toLowerCase()) ? ' dimmed' : '');
+    row.dataset.id = node.id;
+    row.dataset.era = node.era;
+    row.innerHTML = `
+      <div class="site-row-emoji">${escapeHTML(node.emoji || '📜')}</div>
+      <div class="site-row-main">
+        <div class="site-row-label">${escapeHTML(node.label)}</div>
+        <div class="site-row-era">${escapeHTML(node.era || '')}</div>
+        <div class="site-row-body">${escapeHTML(node.body || '')}</div>
+      </div>`;
+    row.onclick = () => {
+      // Switch era if needed before opening
+      if (node.era && node.era !== currentEra) {
+        setEra(node.era);
+        setTimeout(() => openNode(node), 700);
+      } else {
+        openNode(node);
+      }
+    };
+    list.appendChild(row);
+  });
+}
+
+function getAllNodes() {
+  const nodes = [];
+  Object.keys(NODES).forEach(region =>
+    Object.keys(NODES[region]).forEach(era =>
+      NODES[region][era].forEach(n => nodes.push(n))
+    )
+  );
+  return nodes;
+}
+
+function getNodesForEra(eraId) {
+  const nodes = [];
+  Object.keys(NODES).forEach(region => {
+    (NODES[region][eraId] || []).forEach(n => nodes.push(n));
+  });
+  return nodes;
+}
+
+// ═══════════════════════════════════════════
+// TAGS
+// ═══════════════════════════════════════════
+function renderTags(containerId, themes, onClick) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  (themes || []).forEach(function(theme) {
+    const t = theme.trim(); if (!t) return;
+    const themeData = THEMES[t] || {};
+    const label = themeData.label || t;
+    const hasStory = themeData.story_url && themeData.story_url.trim();
+
+    const wrap = document.createElement('span');
+    wrap.style.cssText = 'display:inline-flex;align-items:center;gap:3px;margin:3px 4px 3px 0;';
+
+    const tag = document.createElement('span');
+    tag.className = 'conn-tag' + (activeTheme === t ? ' active-theme' : '');
+    tag.textContent = label;
+    tag.onclick = function() { onClick(t); };
+    wrap.appendChild(tag);
+
+    if (hasStory) {
+      const storyBtn = document.createElement('span');
+      storyBtn.title = 'Read the story about ' + label;
+      storyBtn.innerHTML = '📖 <span style="font-size:10px;font-weight:600;vertical-align:middle;">Read more</span>';
+      storyBtn.style.cssText = 'cursor:pointer;font-size:12px;opacity:0.9;background:#e8d9b8;border-radius:999px;padding:2px 7px;border:1px solid #c8b060;';
+      storyBtn.onclick = function(e) {
+        e.stopPropagation();
+        openStory(themeData.story_url, label);
+      };
+      wrap.appendChild(storyBtn);
+    }
+
+    el.appendChild(wrap);
+  });
+}
+
+// ═══════════════════════════════════════════
+// THEME FILTER
+// ═══════════════════════════════════════════
+function getAllNodesForTheme(theme) {
+  const results = [];
+  Object.keys(NODES).forEach(r => Object.keys(NODES[r]).forEach(e =>
+    NODES[r][e].forEach(n => { if (n.themes && n.themes.some(t=>t.toLowerCase()===theme.toLowerCase())) results.push(n); })
+  ));
+  return results;
+}
+
+function highlightTheme(theme) {
+  activeTheme = theme;
+  applyThemeToMarkers(theme);
+
+  const matchCount = allMarkers.filter(({node}) => node.themes.some(t=>t.toLowerCase()===theme.toLowerCase())).length;
+  document.getElementById('theme-banner-text').textContent = `Theme: "${theme}" — ${matchCount} in this era`;
+  document.getElementById('theme-banner').style.display = 'flex';
+
+  const allMatches = getAllNodesForTheme(theme);
+
+  if (currentMode === 'desktop') {
+    buildThemeDrawer('theme-drawer-list', allMatches);
+    document.getElementById('theme-drawer-label').textContent = `"${theme}" — ${allMatches.length} across all eras`;
+    document.getElementById('panel-connections').style.display = 'none';
+    document.getElementById('theme-drawer').style.display = 'block';
+  } else {
+    buildThemeDrawer('mobile-theme-drawer-list', allMatches);
+    document.getElementById('mobile-theme-drawer-label').textContent = `"${theme}" — ${allMatches.length} across all eras`;
+    document.getElementById('mobile-detail-connections').style.display = 'none';
+    document.getElementById('mobile-theme-drawer').style.display = 'block';
+    renderSiteList(); // re-render to apply dimming
+  }
+
+  document.querySelectorAll('.conn-tag').forEach(el => el.classList.toggle('active-theme', el.textContent === theme));
+}
+
+function buildThemeDrawer(listId, matches) {
+  const list = document.getElementById(listId);
+  list.innerHTML = '';
+  if (!matches.length) {
+    list.innerHTML = '<div style="font-size:12px;color:#8B6914;font-style:italic;">No sites found.</div>';
+    return;
+  }
+  matches.forEach(node => {
+    const row = document.createElement('div');
+    row.className = 'theme-result-row';
+    row.innerHTML = `
+      <div class="theme-result-emoji">${escapeHTML(node.emoji||'📜')}</div>
+      <div class="theme-result-info">
+        <div class="theme-result-label" title="${escapeHTML(node.label)}">${escapeHTML(node.label)}</div>
+        <div class="theme-result-era">${escapeHTML(node.era||'')}</div>
+      </div>`;
+    row.onclick = () => {
+      const inCurrentEra = allMarkers.some(m => m.node.id === node.id && m.node.era === node.era);
+      if (inCurrentEra) {
+        openNode(node);
+      } else if (node.era) {
+        setEra(node.era);
+        setTimeout(() => openNode(node), 900);
+      }
+    };
+    list.appendChild(row);
+  });
+}
+
+function applyThemeToMarkers(theme) {
+  allMarkers.forEach(({marker, node}) => {
+    const matches = node.themes.some(t => t.toLowerCase() === theme.toLowerCase());
+    const size = node.type === 'event' ? 38 : 40;
+    const hasImg = node.image_url && node.image_url.trim();
+    marker.setIcon(makeIcon(hasImg && node.type==='event' ? node.image_url : node.emoji, size, hasImg && node.type==='event', !matches));
+    if (marker._icon) marker._icon.style.filter = matches ? 'drop-shadow(0 0 8px #c8b060) drop-shadow(0 0 16px #8B6914)' : '';
+  });
+}
+
+function clearThemeFilter(rerender=true) {
+  activeTheme = null;
+  document.getElementById('theme-banner').style.display = 'none';
+  document.getElementById('theme-drawer').style.display = 'none';
+  document.getElementById('mobile-theme-drawer').style.display = 'none';
+
+  if (rerender) {
+    allMarkers.forEach(({marker, node}) => {
+      const size = node.type === 'event' ? 38 : 40;
+      const hasImg = node.image_url && node.image_url.trim();
+      marker.setIcon(makeIcon(hasImg && node.type==='event' ? node.image_url : node.emoji, size, hasImg && node.type==='event', false));
+      if (marker._icon) marker._icon.style.filter = '';
+    });
+    if (currentPanelNode) {
+      const panelConnections = document.getElementById('panel-connections');
+      const mobileConnections = document.getElementById('mobile-detail-connections');
+      if (panelConnections) panelConnections.style.display = '';
+      if (mobileConnections) mobileConnections.style.display = '';
+      document.querySelectorAll('.conn-tag').forEach(el => el.classList.remove('active-theme'));
+    }
+    renderSiteList();
+  }
+}
+
+
+
+// ═══════════════════════════════════════════
+// WORLD RESET
+// ═══════════════════════════════════════════
+function goWorld() {
+  closeTransientUI();
+  map.fitWorld({ padding: getCurrentWorldPadding() });
+}
+
+// ═══════════════════════════════════════════
+// RANDOM
+// ═══════════════════════════════════════════
+function randomDiscovery() {
+  closeTransientUI();
+  const all = [];
+  Object.keys(NODES).forEach(r => Object.keys(NODES[r]).forEach(e => NODES[r][e].forEach(n => all.push(n))));
+  if (!all.length) return;
+  const pool = all.length > 1 ? all.filter(n => (n.era + ':' + n.id) !== lastRandomId) : all;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  lastRandomId = pick.era + ':' + pick.id;
+  if (pick.era && pick.era !== currentEra) {
+    setEra(pick.era);
+    setTimeout(() => openNode(pick), 900);
+  } else {
+    openNode(pick);
+  }
+}
+
+// ═══════════════════════════════════════════
+// VIEW MODE TOGGLE
+// ═══════════════════════════════════════════
+function setViewMode(mode) {
+  currentMode = mode;
+  document.body.className = 'mode-' + mode;
+  document.getElementById('btn-desktop').classList.toggle('active', mode === 'desktop');
+  document.getElementById('btn-mobile').classList.toggle('active', mode === 'mobile');
+  closeTransientUI();
+  setTimeout(() => {
+    map.invalidateSize();
+    const latLngs = allMarkers.map(({node}) => [node.lat, node.lng]);
+    if (latLngs.length) fitEraView(latLngs);
+    else map.fitWorld({ padding: getCurrentWorldPadding() });
+    renderSiteList();
+  }, 50);
+}
+
+// Auto-detect on load
+function detectMode() {
+  return window.innerWidth <= 768 ? 'mobile' : 'desktop';
+}
+
+
+// ═══════════════════════════════════════════
+// BROWSE DRAWER
+// ═══════════════════════════════════════════
+let browseTab = null; // null = closed
+
+function openDrawer(tab) {
+  const drawer = document.getElementById('browse-drawer');
+  closeTransientUI({ preserveTheme: true });
+  const themeDrawer = document.getElementById('theme-drawer');
+  const mobileThemeDrawer = document.getElementById('mobile-theme-drawer');
+  if (themeDrawer) themeDrawer.style.display = 'none';
+  if (mobileThemeDrawer) mobileThemeDrawer.style.display = 'none';
+  if (browseTab === tab && drawer.classList.contains('open')) {
+    closeDrawer();
+    return;
+  }
+  browseTab = tab;
+  drawer.classList.add('open');
+  document.querySelectorAll('.nav-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+  });
+  const navEra = document.getElementById('nav-era');
+  const navTheme = document.getElementById('nav-theme');
+  const mnavEra = document.getElementById('mnav-era');
+  const mnavTheme = document.getElementById('mnav-theme');
+  if (navEra) navEra.classList.toggle('active', tab === 'era');
+  if (navTheme) navTheme.classList.toggle('active', tab === 'theme');
+  if (mnavEra) mnavEra.classList.toggle('active', tab === 'era');
+  if (mnavTheme) mnavTheme.classList.toggle('active', tab === 'theme');
+  renderBrowseList();
+}
+
+function closeDrawer() {
+  browseTab = null;
+  const drawer = document.getElementById('browse-drawer');
+  if (drawer) drawer.classList.remove('open');
+  document.querySelectorAll('.nav-btn').forEach(function(btn) {
+    btn.classList.remove('active');
+  });
+}
+function renderBrowseList() {
+  const list = document.getElementById('browse-list');
+  list.innerHTML = '';
+
+  if (browseTab === 'era') {
+    ERAS.forEach(function(era) {
+      const nodes = getNodesForEra(era.id);
+      if (!nodes.length) return;
+
+      const heading = document.createElement('div');
+      heading.className = 'browse-era-heading';
+      heading.textContent = era.label + ' — ' + nodes.length + ' site' + (nodes.length !== 1 ? 's' : '');
+      list.appendChild(heading);
+
+      nodes.forEach(function(node) {
+        const row = document.createElement('div');
+        row.className = 'browse-row';
+
+        const left = document.createElement('div');
+        left.className = 'browse-row-left';
+
+        const emoji = document.createElement('span');
+        emoji.className = 'browse-row-emoji';
+        emoji.textContent = node.emoji || '📍';
+
+        const info = document.createElement('div');
+        const label = document.createElement('div');
+        label.className = 'browse-row-label';
+        label.textContent = node.label;
+        const sub = document.createElement('div');
+        sub.className = 'browse-row-sub';
+        sub.textContent = node.modern_name || node.ancient_name || '';
+        info.appendChild(label);
+        info.appendChild(sub);
+
+        left.appendChild(emoji);
+        left.appendChild(info);
+
+        const right = document.createElement('span');
+        right.className = 'browse-row-right';
+        right.textContent = era.label;
+
+        row.appendChild(left);
+        row.appendChild(right);
+
+        row.onclick = function() {
+          if (node.era !== currentEra) {
+            setEra(node.era);
+            setTimeout(function() { openNode(node); }, 700);
+          } else {
+            openNode(node);
+          }
+          closeDrawer();
+        };
+        list.appendChild(row);
+      });
+    });
+
+  } else {
+    const themeMap = {};
+    getAllNodes().forEach(function(node) {
+      (node.themes || []).forEach(function(t) {
+        if (!themeMap[t]) themeMap[t] = [];
+        themeMap[t].push(node);
+      });
+    });
+
+    const sorted = Object.entries(themeMap).sort(function(a,b) { return b[1].length - a[1].length; });
+
+    if (!sorted.length) {
+      const msg = document.createElement('div');
+      msg.style.cssText = 'padding:16px 14px;font-size:12px;color:#8B6914;font-style:italic;';
+      msg.textContent = 'No themes found — add themes to your sites sheet.';
+      list.appendChild(msg);
+      return;
+    }
+
+    sorted.forEach(function(entry) {
+      const theme = entry[0];
+      const nodes = entry[1];
+
+      const row = document.createElement('div');
+      row.className = 'browse-row';
+
+      const left = document.createElement('div');
+      left.className = 'browse-row-left';
+
+      const info = document.createElement('div');
+      const label = document.createElement('div');
+      label.className = 'browse-row-label';
+      label.textContent = theme;
+      const sub = document.createElement('div');
+      sub.className = 'browse-row-sub';
+      sub.textContent = nodes.slice(0,3).map(function(n) { return n.label; }).join(', ') + (nodes.length > 3 ? '…' : '');
+      info.appendChild(label);
+      info.appendChild(sub);
+      left.appendChild(info);
+
+      const count = document.createElement('span');
+      count.className = 'browse-theme-count';
+      count.textContent = nodes.length + ' site' + (nodes.length !== 1 ? 's' : '');
+
+      row.appendChild(left);
+      row.appendChild(count);
+
+      row.onclick = function() {
+        highlightTheme(theme);
+        closeDrawer();
+      };
+      list.appendChild(row);
+    });
+  }
+}
+
+
+
+
+// ═══════════════════════════════════════════
+// LEARN MORE — Image slideshow
+// ═══════════════════════════════════════════
+
+// Per-node step sequences. Key = node id.
+// Each step: { label, image, caption }
+let LEARN_MORE_STEPS = {};   // populated from data/learn-more.json at load
+
+let lmSteps = [];
+let lmIndex = 0;
+
+function openLearnMore(nodeId, title) {
+  closeDeepDive();   // panels are mutually exclusive — swap, don't stack
+  const steps = LEARN_MORE_STEPS[nodeId];
+  if (!steps || !steps.length) return;
+
+  lmSteps = steps;
+  lmIndex = 0;
+
+  document.getElementById('learnmore-title').textContent = title || 'Learn More';
+  document.getElementById('learnmore-overlay').classList.add('open');
+  document.body.classList.add('learnmore-open');
+  closeDrawer();
+
+  if (currentMode === 'mobile') {
+    var md = document.getElementById('mobile-detail');
+    if (md) md.style.display = 'none';
+  }
+
+  lmRenderSlide();
+  setTimeout(function() { if (map) map.invalidateSize(); }, 320);
+}
+
+function closeLearnMore(e) {
+  // Only close on backdrop clicks, not clicks inside the panel
+  if (e && e.target !== document.getElementById('learnmore-overlay')) return;
+  document.getElementById('learnmore-overlay').classList.remove('open');
+  document.body.classList.remove('learnmore-open');
+  if (currentMode === 'mobile' && currentPanelNode) {
+    var md = document.getElementById('mobile-detail');
+    if (md) md.style.display = 'block';
+  }
+  setTimeout(function() { if (map) map.invalidateSize(); }, 320);
+}
+
+function lmRenderSlide() {
+  const step = lmSteps[lmIndex];
+  const img = document.getElementById('learnmore-img');
+
+  // Fade transition
+  img.classList.add('fade');
+  setTimeout(function() {
+    img.src = step.image;
+    img.alt = step.label;
+    img.onload = function() { img.classList.remove('fade'); };
+    img.onerror = function() { img.classList.remove('fade'); };
+  }, 250);
+
+  document.getElementById('learnmore-caption-label').textContent = step.label;
+  document.getElementById('learnmore-caption-text').textContent = step.caption;
+  document.getElementById('learnmore-counter').textContent =
+    (lmIndex + 1) + ' / ' + lmSteps.length;
+
+  document.getElementById('lm-prev').disabled = (lmIndex === 0);
+  document.getElementById('lm-next').disabled = (lmIndex === lmSteps.length - 1);
+
+  // Dots
+  const dotsEl = document.getElementById('learnmore-step-dots');
+  dotsEl.innerHTML = '';
+  lmSteps.forEach(function(_, i) {
+    const dot = document.createElement('span');
+    dot.className = 'lm-dot' + (i === lmIndex ? ' active' : '');
+    dot.onclick = (function(idx) { return function() { lmIndex = idx; lmRenderSlide(); }; })(i);
+    dotsEl.appendChild(dot);
+  });
+}
+
+function lmChangeSlide(delta) {
+  const next = lmIndex + delta;
+  if (next >= 0 && next < lmSteps.length) {
+    lmIndex = next;
+    lmRenderSlide();
+  }
+}
+
+// ═══════════════════════════════════════════
+// DEEP DIVE PANEL
+// ═══════════════════════════════════════════
+
+
+function openDeepDive(url, title) {
+closeLearnMore();   // panels are mutually exclusive — swap, don't stack
+  document.getElementById('deepdive-title').textContent = title || 'Deep Dive';
+  document.getElementById('deepdive-overlay').classList.add('open');
+  document.body.classList.add('deepdive-open');
+  closeDrawer();
+  // On mobile, close the site detail sheet so deepdive has full space
+  if (currentMode === 'mobile') {
+    var md = document.getElementById('mobile-detail');
+    if (md) md.style.display = 'none';
+  }
+  setTimeout(function() { if (map) map.invalidateSize(); }, 320);
+
+  // Show loading state
+  var loading = document.getElementById('deepdive-loading');
+  var body = document.getElementById('deepdive-body');
+  loading.style.display = 'block';
+  body.style.display = 'none';
+  body.innerHTML = '';
+
+  // Fetch the Google Doc published HTML and extract the content
+  fetch(url)
+    .then(function(r) { return r.text(); })
+    .then(function(rawHtml) {
+  var parser = new DOMParser();
+  var doc = parser.parseFromString(rawHtml, 'text/html');
+
+  // Read Google's generated stylesheet BEFORE stripping it,
+  // so we can recover bold/italic that lives in class rules
+  var styleText = Array.prototype.map.call(
+    doc.querySelectorAll('style'), function(s){ return s.textContent; }
+  ).join('\n');
+  var boldClasses = [], italicClasses = [];
+  var re = /\.([\w-]+)\s*\{([^}]*)\}/g, m;
+  while ((m = re.exec(styleText))) {
+    if (/font-weight\s*:\s*(700|bold)/.test(m[2])) boldClasses.push(m[1]);
+    if (/font-style\s*:\s*italic/.test(m[2]))      italicClasses.push(m[1]);
+  }
+
+  var contents = doc.querySelector('#contents') || doc.body;
+
+  // Remove Google chrome only — NEVER generated content classes like .c8
+  ['#header', '#footer', 'script', 'style'].forEach(function(sel) {
+    contents.querySelectorAll(sel).forEach(function(el) { el.remove(); });
+  });
+
+  // Re-apply bold/italic from class rules, then strip layout styles
+  contents.querySelectorAll('*').forEach(function(el) {
+    var keep = '';
+    var inline = el.getAttribute('style') || '';
+    var isBold   = /font-weight\s*:\s*(700|bold)/.test(inline) ||
+                   boldClasses.some(function(c){ return el.classList.contains(c); });
+    var isItalic = /font-style\s*:\s*italic/.test(inline) ||
+                   italicClasses.some(function(c){ return el.classList.contains(c); });
+    if (isBold)   keep += 'font-weight:bold;';
+    if (isItalic) keep += 'font-style:italic;';
+    if (keep) el.setAttribute('style', keep);
+    else el.removeAttribute('style');
+  });
+
+  var html = contents.innerHTML;
+  var hasText = html && html.replace(/<[^>]*>/g, '').trim().length > 0;
+  if (!hasText) {
+    body.innerHTML = '<p style="font-style:italic;color:#8B6914;">' +
+      'The document loaded but no text could be extracted. ' +
+      '<a href="' + escapeHTML(url) + '" target="_blank" rel="noopener">Open it directly →</a></p>';
+  } else {
+    body.innerHTML = html;
+  }
+  loading.style.display = 'none';
+  body.style.display = 'block';
+})
+    .catch(function(err) {
+      loading.textContent = 'Could not load content. Check the URL is published publicly.';
+      console.error('Deep dive fetch error:', err);
+    });
+}
+
+function closeDeepDive(e) {
+  // Only close on backdrop clicks, not clicks inside the panel
+  if (e && e.target !== document.getElementById('deepdive-overlay')) return;
+  document.getElementById('deepdive-overlay').classList.remove('open');
+  document.body.classList.remove('deepdive-open');
+  document.getElementById('deepdive-body').innerHTML = '';
+  document.getElementById('deepdive-loading').style.display = 'block';
+
+  // On mobile, restore the site detail sheet if a node was open
+  if (currentMode === 'mobile' && currentPanelNode) {
+    var md = document.getElementById('mobile-detail');
+    if (md) md.style.display = 'block';
+  }
+
+  setTimeout(function() { if (map) map.invalidateSize(); }, 320);
+}
+
+
+// ═══════════════════════════════════════════
+// STORY LIGHTBOX
+// ═══════════════════════════════════════════
+function openStory(url, title) {
+  closeDeepDive();   // sweep side panels so closing the story returns to the popup nav
+  closeLearnMore();
+  closeTransientUI({ preserveTheme: true });
+  const storyTitle = document.getElementById('story-title');
+  const storyLoading = document.getElementById('story-loading');
+  const storyFrame = document.getElementById('story-iframe');
+  const storyOverlay = document.getElementById('story-overlay');
+  if (storyTitle) storyTitle.textContent = title || 'Story';
+  if (storyLoading) storyLoading.style.display = 'flex';
+  if (storyFrame) storyFrame.src = url;
+  if (storyOverlay) storyOverlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeStory(e) {
+  // Only close if clicking the dark backdrop, not the box itself
+  if (e && e.target !== document.getElementById('story-overlay')) return;
+  closeStoryDirect();
+}
+
+function closeStoryDirect() {
+  const storyOverlay = document.getElementById('story-overlay');
+  const storyFrame = document.getElementById('story-iframe');
+  const detail = document.getElementById('mobile-detail');
+  if (storyOverlay) storyOverlay.classList.remove('open');
+  if (storyFrame) storyFrame.src = '';
+  if (!(detail && detail.classList.contains('open'))) {
+    document.body.style.overflow = '';
+  }
+}
+
+// Close topmost overlay on Escape key (one layer per press)
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  var story = document.getElementById('story-overlay');
+  var lm = document.getElementById('learnmore-overlay');
+  var dd = document.getElementById('deepdive-overlay');
+  if (story && story.classList.contains('open')) {
+    closeStoryDirect();
+  } else if (lm && lm.classList.contains('open')) {
+    closeLearnMore();
+  } else if (dd && dd.classList.contains('open')) {
+    closeDeepDive();
+  }
+});
+// Embedded story pages (iframes) can request closing the story overlay
+window.addEventListener('message', function(e) {
+  if (e.data === 'close-story') closeStoryDirect();
+});
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.onload = () => {
+  const mode = detectMode();
+  currentMode = mode;
+  document.body.classList.remove('mode-desktop', 'mode-mobile');
+  document.body.classList.add('mode-' + mode);
+  document.getElementById('btn-desktop').classList.toggle('active', mode === 'desktop');
+  document.getElementById('btn-mobile').classList.toggle('active', mode === 'mobile');
+  bindCollapseOnOutsideClick();
+  loadData();
+};
+
+window.addEventListener('resize', () => {
+  const mode = detectMode();
+  if (mode !== currentMode) setViewMode(mode);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,466 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notes — Christopher Windsmile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
+  <style>
+    .notes-wrap {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 4rem;
+      max-width: 1000px;
+      margin: 4rem auto;
+      padding: 0 3rem;
+      align-items: start;
+    }
+    .notes-main h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 300; font-size: 2.8rem; color: var(--accent); margin-bottom: 0.5rem; }
+    .notes-main .page-sub { font-family: 'Jost', sans-serif; font-weight: 300; font-size: 0.72rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--sepia); margin-bottom: 2.5rem; }
+    .note-display { border-top: 1px solid var(--rule); padding-top: 2rem; }
+    .note-meta { font-family: 'Jost', sans-serif; font-size: 0.65rem; font-weight: 300; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sepia); margin-bottom: 0.8rem; }
+    .note-title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 1.8rem; font-weight: 400; color: var(--accent); margin-bottom: 1.5rem; line-height: 1.2; }
+    .note-body { color: var(--ink); }
+    .note-body p { margin-bottom: 1em; }
+    .note-placeholder { font-family: 'Jost', sans-serif; font-size: 0.8rem; font-weight: 300; color: var(--muted); font-style: italic; padding: 1rem 0; }
+    .note-source { display: inline-block; margin-top: 1.5rem; font-family: 'Jost', sans-serif; font-size: 0.6rem; font-weight: 300; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); opacity: 0.5; }
+    .loading { font-family: 'Jost', sans-serif; font-size: 0.8rem; font-weight: 300; color: var(--muted); font-style: italic; padding: 2rem 0; }
+    .notes-sidebar { position: sticky; top: 2rem; }
+    .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.8rem; }
+    .cal-nav button { background: none; border: none; font-family: 'Jost', sans-serif; font-size: 0.65rem; font-weight: 300; color: var(--muted); cursor: pointer; padding: 0.2rem 0.4rem; }
+    .cal-nav button:hover { color: var(--sepia); }
+    .cal-month-label { font-family: 'Jost', sans-serif; font-size: 0.68rem; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin-bottom: 2rem; }
+    .cal-day-name { font-family: 'Jost', sans-serif; font-size: 0.55rem; font-weight: 300; color: var(--muted); text-align: center; padding-bottom: 0.4rem; opacity: 0.7; }
+    .cal-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-family: 'Jost', sans-serif; font-size: 0.65rem; font-weight: 300; color: var(--muted); position: relative; border-radius: 2px; }
+    .cal-cell.has-entry { color: var(--accent); font-weight: 400; cursor: pointer; }
+    .cal-cell.has-entry::after { content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 3px; height: 3px; border-radius: 50%; background: var(--sepia); }
+    .cal-cell.has-entry:hover { color: var(--sepia); }
+    .cal-cell.today { background: var(--pale); }
+    .cal-cell.selected { background: var(--sepia); color: var(--parchment) !important; }
+    .cal-cell.selected::after { background: var(--parchment); }
+    .sidebar-list-label { font-family: 'Jost', sans-serif; font-size: 0.6rem; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; color: var(--sepia); margin-bottom: 0.8rem; }
+    .sidebar-entry { padding: 0.6rem 0; border-bottom: 1px solid var(--rule); cursor: pointer; }
+    .sidebar-entry:hover .sidebar-entry-title { color: var(--sepia); }
+    .sidebar-entry-date { font-family: 'Jost', sans-serif; font-size: 0.58rem; font-weight: 300; color: var(--sepia); margin-bottom: 0.2rem; }
+    .sidebar-entry-title { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 0.95rem; font-weight: 400; color: var(--accent); line-height: 1.3; transition: color 0.2s; }
+    @media (max-width: 700px) {
+      .notes-wrap { grid-template-columns: 1fr; gap: 3rem; padding: 0 1.5rem; margin: 2.5rem auto; }
+      .notes-sidebar { position: static; order: 2; }
+      .notes-main { order: 1; }
+    }
+  
+    /* ── Feed (cards + pagination) ─────────────────────────────── */
+    .note-card { border-top: 1px solid var(--rule); padding-top: 2rem; margin-bottom: 2.5rem; }
+    .note-card.flash { animation: note-flash 1.2s ease-out; }
+    @keyframes note-flash { from { background: var(--pale); } to { background: transparent; } }
+    .feed-label { font-family: 'Jost', sans-serif; font-size: 0.62rem; font-weight: 300; letter-spacing: 0.12em; text-transform: uppercase; color: var(--sepia); margin-bottom: 1.5rem; }
+    .feed-reset { background: none; border: none; font-family: 'Jost', sans-serif; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); cursor: pointer; text-decoration: underline; padding: 0; }
+    .feed-reset:hover { color: var(--sepia); }
+    .feed-loading { font-family: 'Jost', sans-serif; font-size: 0.8rem; font-weight: 300; color: var(--muted); font-style: italic; padding: 0.5rem 0; }
+    .note-snippet p, .note-full p { margin-bottom: 1em; }
+    .read-more-btn { background: none; border: none; font-family: 'Jost', sans-serif; font-weight: 300; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sepia); cursor: pointer; padding: 0.3rem 0; margin-top: 0.4rem; }
+    .read-more-btn:hover { color: var(--accent); }
+    .feed-pager { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--rule); padding-top: 1.5rem; margin-top: 0.5rem; }
+    .pager-btn { background: none; border: 1px solid var(--rule); border-radius: 2px; font-family: 'Jost', sans-serif; font-weight: 300; font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); cursor: pointer; padding: 0.45rem 0.9rem; }
+    .pager-btn:hover:not(:disabled) { background: var(--pale); border-color: var(--sepia); color: var(--sepia); }
+    .pager-btn:disabled { opacity: 0.35; cursor: default; }
+    .pager-count { font-family: 'Jost', sans-serif; font-size: 0.6rem; letter-spacing: 0.1em; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+
+
+<div class="notes-wrap">
+  <div class="notes-main">
+    <h1>Notes</h1>
+    <p class="page-sub">A running record — observations, readings, fragments</p>
+    <div class="note-display" id="note-display">
+      <div class="loading">Loading notes…</div>
+    </div>
+  </div>
+
+  <aside class="notes-sidebar">
+    <div class="cal-nav">
+      <button id="prev-month">←</button>
+      <div class="cal-month-label" id="month-label"></div>
+      <button id="next-month">→</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="sidebar-list-label" id="sidebar-list-label">Recent notes</div>
+    <div id="sidebar-list"></div>
+  </aside>
+</div>
+
+<div id="site-footer"></div>
+<script src="nav.js"></script>
+<script src="site-utils.js"></script>
+<script>
+
+  // ── CONFIG ──────────────────────────────────────────────────────
+  const SHEET_CSV_URL  = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vThjBZ1XiIHhA4QvT9aqga0dVGKRe9pGMBIG6u9ZudB_RqnI_KgcdiT8du3RvvNXxqDvTajE_VTgk0q/pub?gid=0&single=true&output=csv'; // live drafting sheet
+  const STATIC_CSV_URL = 'notes-quick.csv';   // ported / stabilized quick notes
+  const JSON_URL       = 'notes-data.json';   // long notes index
+  const PAGE_SIZE = 5;       // entries shown per feed page
+  const SNIPPET_CHARS = 600; // generous; short entries show in full
+  // ───────────────────────────────────────────────────────────────
+
+  let allEntries = [];
+  let feedEntries = [];          // the list currently being paged (all, or one day)
+  let feedLabel = 'Recent notes';
+  let feedPage = 0;
+  let pendingScrollPos = null;   // when set, renderFeed scrolls this card into view
+  let listEntries = [];          // entries currently shown in the sidebar list
+  let currentYear, currentMonth, selectedDate;
+  const contentCache = {};       // entry.file -> { fullHTML, plain }
+
+  const today = new Date();
+  currentYear = today.getFullYear();
+  currentMonth = today.getMonth();
+
+  const monthNames = ['January','February','March','April','May','June',
+                      'July','August','September','October','November','December'];
+
+  // ── Robust RFC-4180 CSV parser ──────────────────────────────────
+  // Correctly handles commas, escaped quotes, and NEWLINES inside quoted cells.
+  function parseCSV(text, skipRows = 0) {
+    const rows = []; let row = [], cur = '', inQ = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else inQ = false; }
+        else cur += ch;
+      } else {
+        if (ch === '"') inQ = true;
+        else if (ch === ',') { row.push(cur); cur = ''; }
+        else if (ch === '\r') { /* ignore CR */ }
+        else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+        else cur += ch;
+      }
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    const data = rows.slice(skipRows);
+    if (!data.length) return [];
+    const headers = data[0].map(h => h.trim());
+    return data.slice(1).map(vals => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = (vals[i] != null ? vals[i].trim() : ''));
+      return obj;
+    }).filter(r => r.date && r.title);
+  }
+
+  // ── Load all sources, merge, display ────────────────────────────
+  // Live Google sheet + ported static CSV + long-notes JSON. Both CSV
+  // sources render the same; nothing dedupes, so delete a row from the
+  // sheet once you've ported it into notes-quick.csv.
+  Promise.allSettled([
+    fetch(SHEET_CSV_URL).then(r => r.text()).then(csv => parseCSV(csv)),
+    fetch(STATIC_CSV_URL).then(r => r.text()).then(csv => parseCSV(csv)),
+    fetch(JSON_URL).then(r => r.json())
+  ]).then(results => {
+    const sheetEntries  = results[0].status === 'fulfilled' ? results[0].value : [];
+    const staticEntries = results[1].status === 'fulfilled' ? results[1].value : [];
+    const jsonEntries   = results[2].status === 'fulfilled' ? results[2].value : [];
+
+    sheetEntries.forEach(e => e._source = 'sheet');
+    staticEntries.forEach(e => e._source = 'sheet');   // both render as "Quick note"
+    jsonEntries.forEach(e => e._source = 'file');
+
+    allEntries = [...sheetEntries, ...staticEntries, ...jsonEntries]
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    renderCalendar();
+    renderSidebarList(allEntries.slice(0, 12), 'Recent notes');
+    setFeed(allEntries, 'Recent notes');
+  });
+
+  // ── Text helpers ────────────────────────────────────────────────
+  function stripTags(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function truncateAtWord(text, max) {
+    if (text.length <= max) return { text: text, truncated: false };
+    let cut = text.slice(0, max);
+    const lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > max * 0.6) cut = cut.slice(0, lastSpace);
+    return { text: cut.replace(/[\s.,;:]+$/, '') + '…', truncated: true };
+  }
+
+  // Build paragraph HTML from plain text, honouring real newlines AND
+  // the legacy literal "\n" convention. Text is escaped.
+  function paragraphsFrom(text) {
+    return text
+      .replace(/\\n/g, '\n')
+      .split(/\n+/)
+      .map(p => p.trim())
+      .filter(Boolean)
+      .map(p => '<p>' + escapeHTML(p) + '</p>')
+      .join('');
+  }
+
+  // ── Resolve an entry's content (file entries fetched + cached) ───
+  // Returns Promise<{ fullHTML, plain }> so every entry — sheet or file —
+  // is rendered the same way: snippet first, expand to full on demand.
+  function getEntryContent(entry) {
+    if (entry.file && entry.file.trim() !== '') {
+      if (contentCache[entry.file]) return Promise.resolve(contentCache[entry.file]);
+      return fetch(entry.file)
+        .then(r => { if (!r.ok) throw new Error('not found'); return r.text(); })
+        .then(html => {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const node = doc.querySelector('main') || doc.querySelector('body');
+          const fullHTML = node ? node.innerHTML : html;
+          const result = { fullHTML: fullHTML, plain: stripTags(fullHTML) };
+          contentCache[entry.file] = result;
+          return result;
+        })
+        .catch(() => {
+          const body = entry.body && entry.body.trim() ? entry.body : '';
+          return body
+            ? { fullHTML: paragraphsFrom(body), plain: stripTags(paragraphsFrom(body)) }
+            : { fullHTML: '<p class="note-placeholder">Content unavailable.</p>', plain: '' };
+        });
+    }
+    const body = entry.body && entry.body.trim() ? entry.body : '';
+    return Promise.resolve(body
+      ? { fullHTML: paragraphsFrom(body), plain: stripTags(paragraphsFrom(body)) }
+      : { fullHTML: '<p class="note-placeholder">No content yet.</p>', plain: '' });
+  }
+
+  // ── Feed ────────────────────────────────────────────────────────
+  function setFeed(entries, label) {
+    feedEntries = entries;
+    feedLabel = label;
+    feedPage = 0;
+    renderFeed();
+  }
+
+  function renderFeed() {
+    const display = document.getElementById('note-display');
+    const total = feedEntries.length;
+    if (total === 0) {
+      display.innerHTML = '<div class="note-placeholder">No notes to show.</div>';
+      return;
+    }
+
+    const start = feedPage * PAGE_SIZE;
+    const pageEntries = feedEntries.slice(start, start + PAGE_SIZE);
+
+    const labelHTML = (feedLabel && feedLabel !== 'Recent notes')
+      ? '<div class="feed-label">' + escapeHTML(feedLabel) +
+        ' · <button class="feed-reset" id="feed-reset">show recent</button></div>'
+      : '';
+
+    const cardsHTML = pageEntries.map((e, i) => {
+      const d = new Date(e.date + 'T00:00:00');
+      const dateLabel = d.toLocaleDateString('en-CA', {year:'numeric', month:'long', day:'numeric'});
+      const sourceLabel = e._source === 'sheet' ? 'Quick note' : 'Long note';
+      return '<article class="note-card" id="note-card-' + i + '">' +
+               '<div class="note-meta">' + escapeHTML(dateLabel) + '</div>' +
+               '<div class="note-title">' + escapeHTML(e.title) + '</div>' +
+               '<div class="note-body" id="note-body-' + i + '"><div class="feed-loading">Loading…</div></div>' +
+               '<span class="note-source">' + escapeHTML(sourceLabel) + '</span>' +
+             '</article>';
+    }).join('');
+
+    display.innerHTML = labelHTML + cardsHTML + renderPagerHTML(start, pageEntries.length, total);
+
+    const resetBtn = document.getElementById('feed-reset');
+    if (resetBtn) resetBtn.addEventListener('click', () => {
+      selectedDate = null; renderCalendar(); setFeed(allEntries, 'Recent notes');
+    });
+
+    bindPager(total);
+
+    // Fill each card body asynchronously (file entries are fetched once, cached)
+    const fills = pageEntries.map((e, i) =>
+      getEntryContent(e).then(result => {
+        const bodyEl = document.getElementById('note-body-' + i);
+        if (!bodyEl) return;
+        const snip = truncateAtWord(result.plain, SNIPPET_CHARS);
+        if (!snip.truncated) {
+          bodyEl.innerHTML = result.fullHTML || '<p class="note-placeholder">No content.</p>';
+          return;
+        }
+        bodyEl.innerHTML =
+          '<div class="note-snippet"><p>' + escapeHTML(snip.text) + '</p></div>' +
+          '<div class="note-full" style="display:none;">' + result.fullHTML + '</div>' +
+          '<button class="read-more-btn">Read more →</button>';
+        const btn    = bodyEl.querySelector('.read-more-btn');
+        const snipEl = bodyEl.querySelector('.note-snippet');
+        const fullEl = bodyEl.querySelector('.note-full');
+        btn.addEventListener('click', () => {
+          const open = fullEl.style.display !== 'none';
+          fullEl.style.display = open ? 'none' : 'block';
+          snipEl.style.display = open ? 'block' : 'none';
+          btn.textContent = open ? 'Read more →' : 'Show less ↑';
+        });
+      }).catch(() => {}));
+
+    if (pendingScrollPos !== null) {
+      const pos = pendingScrollPos; pendingScrollPos = null;
+      // Wait for the page's cards to finish loading so positions are settled,
+      // then bring the selected card into view with a brief highlight.
+      Promise.allSettled(fills).then(() => {
+        const card = document.getElementById('note-card-' + pos);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          card.classList.add('flash');
+          setTimeout(() => card.classList.remove('flash'), 1200);
+        }
+      });
+    } else if (window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function renderPagerHTML(start, count, total) {
+    const from = start + 1;
+    const to = start + count;
+    const hasPrev = feedPage > 0;
+    const hasNext = start + PAGE_SIZE < total;
+    return '<div class="feed-pager">' +
+      '<button class="pager-btn" id="pager-prev"' + (hasPrev ? '' : ' disabled') + '>← Back</button>' +
+      '<span class="pager-count">' + from + '–' + to + ' of ' + total + '</span>' +
+      '<button class="pager-btn" id="pager-next"' + (hasNext ? '' : ' disabled') + '>Next →</button>' +
+    '</div>';
+  }
+
+  function bindPager(total) {
+    const prev = document.getElementById('pager-prev');
+    const next = document.getElementById('pager-next');
+    if (prev) prev.addEventListener('click', () => {
+      if (feedPage > 0) { feedPage--; renderFeed(); }
+    });
+    if (next) next.addEventListener('click', () => {
+      if ((feedPage + 1) * PAGE_SIZE < total) { feedPage++; renderFeed(); }
+    });
+  }
+
+  // Navigate the feed to a given entry and scroll it into view. Stays within
+  // the current feed list if the entry is in it (e.g. an active day filter);
+  // otherwise falls back to the full list.
+  function jumpToEntry(entry) {
+    if (!entry) return;
+    let list = feedEntries;
+    let idx = list.indexOf(entry);
+    if (idx === -1) { list = allEntries; idx = list.indexOf(entry); }
+    if (idx === -1) { setFeed([entry], entry.title); return; }
+    if (list !== feedEntries) { feedEntries = list; feedLabel = 'Recent notes'; }
+    feedPage = Math.floor(idx / PAGE_SIZE);
+    pendingScrollPos = idx % PAGE_SIZE;
+    renderFeed();
+  }
+
+  // ── Calendar ────────────────────────────────────────────────────
+  function renderCalendar() {
+    document.getElementById('month-label').textContent =
+      monthNames[currentMonth].substring(0, 3) + ' ' + currentYear;
+
+    const entriesThisMonth = new Set(
+      allEntries
+        .filter(e => {
+          const d = new Date(e.date + 'T00:00:00');
+          return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        })
+        .map(e => parseInt(e.date.split('-')[2]))
+    );
+
+    const firstDay    = new Date(currentYear, currentMonth, 1).getDay();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const grid = document.getElementById('cal-grid');
+    grid.innerHTML = '';
+
+    ['S','M','T','W','T','F','S'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-day-name';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    for (let i = 0; i < firstDay; i++) {
+      const el = document.createElement('div');
+      el.className = 'cal-cell empty';
+      grid.appendChild(el);
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const el = document.createElement('div');
+      el.className = 'cal-cell';
+      el.textContent = day;
+
+      const isToday = day === today.getDate() &&
+                      currentMonth === today.getMonth() &&
+                      currentYear === today.getFullYear();
+      if (isToday) el.classList.add('today');
+
+      const dayStr   = String(day).padStart(2, '0');
+      const monthStr = String(currentMonth + 1).padStart(2, '0');
+      const dateKey  = currentYear + '-' + monthStr + '-' + dayStr;
+      if (selectedDate === dateKey) el.classList.add('selected');
+
+      if (entriesThisMonth.has(day)) {
+        el.classList.add('has-entry');
+        el.addEventListener('click', () => {
+          selectedDate = dateKey;
+          const dayEntries = allEntries.filter(e => e.date === dateKey);
+          const label = monthNames[currentMonth] + ' ' + day + ', ' + currentYear;
+          renderCalendar();
+          renderSidebarList(dayEntries, monthNames[currentMonth] + ' ' + day);
+          setFeed(dayEntries, label);
+        });
+      }
+      grid.appendChild(el);
+    }
+  }
+
+  // ── Sidebar list ────────────────────────────────────────────────
+  function renderSidebarList(entries, label) {
+    document.getElementById('sidebar-list-label').textContent = label;
+    listEntries = entries;
+    const list = document.getElementById('sidebar-list');
+    if (entries.length === 0) {
+      list.innerHTML = '<p class="note-placeholder">No notes for this day.</p>';
+      return;
+    }
+    list.innerHTML = entries.map((e, i) => {
+      const d = new Date(e.date + 'T00:00:00');
+      const dateLabel = d.toLocaleDateString('en-CA', {year:'numeric', month:'short', day:'numeric'});
+      return '<div class="sidebar-entry" data-idx="' + i + '">' +
+               '<div class="sidebar-entry-date">' + escapeHTML(dateLabel) + '</div>' +
+               '<div class="sidebar-entry-title">' + escapeHTML(e.title) + '</div>' +
+             '</div>';
+    }).join('');
+    list.querySelectorAll('.sidebar-entry').forEach(el => {
+      el.addEventListener('click', () => jumpToEntry(listEntries[parseInt(el.dataset.idx, 10)]));
+    });
+  }
+
+  // ── Month navigation ────────────────────────────────────────────
+  document.getElementById('prev-month').addEventListener('click', () => {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    selectedDate = null;
+    renderCalendar();
+    renderSidebarList(allEntries.slice(0, 12), 'Recent notes');
+  });
+
+  document.getElementById('next-month').addEventListener('click', () => {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    selectedDate = null;
+    renderCalendar();
+    renderSidebarList(allEntries.slice(0, 12), 'Recent notes');
+  });
+
+</script>
+</body>
+</html>

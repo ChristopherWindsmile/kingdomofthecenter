@@ -1,0 +1,101 @@
+name: Generate pages manifest
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  manifest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate pages-manifest.json
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, subprocess, re
+          from pathlib import Path
+
+          EXCLUDE = {
+            '404.html',
+          }
+
+          TRACK_RULES = {
+            'books': ['books/', 'portable-temple/', 'atlas/'],
+            'notebooks': ['notebooks/', 'essays/', 'journal/', 'venusville/', 'citadel/'],
+          }
+
+          def get_title(path):
+              try:
+                  with open(path, encoding='utf-8', errors='ignore') as f:
+                      content = f.read(4096)
+                  m = re.search(r'<title[^>]*>(.*?)</title>', content, re.IGNORECASE | re.DOTALL)
+                  if m:
+                      return re.sub(r'\s+', ' ', m.group(1)).strip()
+              except Exception:
+                  pass
+              return Path(path).stem.replace('-', ' ').replace('_', ' ').title()
+
+          def get_last_modified(path):
+              result = subprocess.run(
+                  ['git', 'log', '-1', '--format=%ci', '--', path],
+                  capture_output=True, text=True
+              )
+              date_str = result.stdout.strip()
+              if date_str:
+                  return date_str[:10]
+              return None
+
+          def infer_track(path):
+              for track, prefixes in TRACK_RULES.items():
+                  for prefix in prefixes:
+                      if path.startswith(prefix):
+                          return track
+              return 'general'
+
+          pages = []
+          for root, dirs, files in os.walk('.'):
+              dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('node_modules', '_site', 'assets', 'vendor')]
+              for fname in files:
+                  if not fname.endswith('.html'):
+                      continue
+                  if fname in EXCLUDE:
+                      continue
+                  full = os.path.join(root, fname)
+                  rel = os.path.relpath(full, '.').replace(os.sep, '/')
+                  pages.append({
+                      'path': rel,
+                      'title': get_title(full),
+                      'updated': get_last_modified(full),
+                      'track': infer_track(rel),
+                  })
+
+          pages.sort(key=lambda p: (p['track'], p['path']))
+
+          with open('pages-manifest.json', 'w', encoding='utf-8') as f:
+              json.dump({'generated': subprocess.run(
+                  ['git', 'log', '-1', '--format=%ci'],
+                  capture_output=True, text=True).stdout.strip()[:10],
+                  'pages': pages}, f, indent=2, ensure_ascii=False)
+
+          print(f"Wrote {len(pages)} pages to pages-manifest.json")
+          PYEOF
+
+      - name: Commit manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pages-manifest.json
+          if git diff --staged --quiet; then
+            echo "No changes to manifest."
+          else
+            git commit -m "chore: regenerate pages-manifest.json [skip ci]"
+            git push
+          fi
