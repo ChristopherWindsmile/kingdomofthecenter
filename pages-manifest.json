@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-20",
+  "generated": "2026-06-21",
   "pages": [
     {
       "path": "drafts_futureproject1/null2.html",
@@ -56,9 +56,27 @@
       "track": "general"
     },
     {
+      "path": "portabletemple/deepdives/fire-mechanics.html",
+      "title": "Keeping Fire Alive — Deep Dive · Kingdom of the Center",
+      "updated": "2026-06-21",
+      "track": "general"
+    },
+    {
       "path": "portabletemple/deepdives/forbidden-city.html",
       "title": "The Forbidden City — Deep Dive · Kingdom of the Center",
       "updated": "2026-06-20",
+      "track": "general"
+    },
+    {
+      "path": "portabletemple/deepdives/prometheus-across-eras.html",
+      "title": "Prometheus Across Eras — Deep Dive · Kingdom of the Center",
+      "updated": "2026-06-21",
+      "track": "general"
+    },
+    {
+      "path": "portabletemple/deepdives/prometheus-vs-satan.html",
+      "title": "Prometheus vs. Satan — Deep Dive · Kingdom of the Center",
+      "updated": "2026-06-21",
       "track": "general"
     },
     {
@@ -71,6 +89,18 @@
       "path": "portabletemple/tour_birds-without-borders.html",
       "title": "Bird-Feather Motifs • Interactive Explorer",
       "updated": "2026-06-20",
+      "track": "general"
+    },
+    {
+      "path": "portabletemple/tour_prometheus_eras.html",
+      "title": "Prometheus, Across the Eras • Interactive Explorer",
+      "updated": "2026-06-21",
+      "track": "general"
+    },
+    {
+      "path": "portabletemple/tour_serpent_forms.html",
+      "title": "Serpent Forms: Bird, Fire, and the Shapes We Fear • Interactive Explorer",
+      "updated": "2026-06-21",
       "track": "general"
     },
     {
