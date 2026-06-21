@@ -29,5 +29,57 @@
     "stonehenge": [
     { "label": "The Sarsen Circle", "image": "...", "caption": "..." },
     { "label": "The Heel Stone",    "image": "...", "caption": "..." }
+  ],
+
+  "prometheus-naga-garuda": [
+    {
+      "label": "Garuda — vehicle of Vishnu",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Garuda — half man, half bird of prey, mount of Vishnu — is most often shown mid-flight gripping a naga (serpent) in his talons or beak. The opposition is built into the iconography itself: sky against earth/water, the bird that preys on the very thing the serpent represents."
+    },
+    {
+      "label": "Naga — still a living tradition",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22300%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Unlike most of the figures elsewhere on this tour, the naga isn't confined to ancient texts — temple gables, palace roof-finials, and guardian statues across Thailand, Cambodia, Laos, and Indonesia still depict the naga today. The Garuda/naga opposition is a live visual language, not a dead one."
+    }
+  ],
+
+  "prometheus-eagle-serpent": [
+    {
+      "label": "The eagle and the serpent — Tenochtitlan",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "The Aztec founding emblem — an eagle perched on a cactus, a serpent in its talons — marks the spot where Tenochtitlan was built, and survives today at the center of the Mexican flag. The same bird-over-serpent shape recurs from India to Mesoamerica without any contact between the two traditions."
+    },
+    {
+      "label": "A motif that circles the globe",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Birds of prey killing snakes is also just an observed fact of nature in many regions — which may be part of why the symbol recurs so widely. Myth, in this one case, may be tracking something visibly true on the ground (or in the sky) rather than inventing it from nothing."
+    }
+  ],
+
+  "prometheus-dragon": [
+    {
+      "label": "The dragon as winged serpent",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Strip away the fantasy-genre packaging and a dragon is, structurally, a serpent that has acquired wings — the bird and the serpent fused into one body rather than opposed. European dragons (guarding hoards, breathing fire) and Chinese dragons (associated with water, weather, imperial authority) take the fusion in very different directions."
+    },
+    {
+      "label": "Quetzalcoatl — the feathered serpent",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Mesoamerica names the fusion directly: Quetzalcoatl, the feathered serpent, is bird and serpent in one deity rather than two opposed creatures. A third option alongside 'bird hunts serpent' (Garuda/naga, the Aztec emblem) and 'serpent grows wings' (the dragon) — here the two simply are each other."
+    }
+  ],
+
+  "prometheus-fire": [
+    {
+      "label": "Fennel stalk vs. hollow reed",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Aeschylus says fennel stalk; Pseudo-Apollodorus says hollow reed. Two answers to the same practical question — what container keeps a stolen ember smoldering on the trip down from Olympus without it going out, or burning through its own casing first. Full sourcing and the narthex etymology trail are in the deep dive."
+    },
+    {
+      "label": "The Aztec New Fire Ceremony",
+      "image": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22500%22%20height%3D%22300%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%231a1814%22/%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%238a7f68%22%20font-family%3D%22sans-serif%22%20font-size%3D%2220%22%20text-anchor%3D%22middle%22%20dominant-baseline%3D%22middle%22%3EImage%20coming%20soon%3C/text%3E%3C/svg%3E",
+      "caption": "Every ~52 years, every hearth fire in the Aztec empire was extinguished and a single new flame rekindled by friction, then carried by runners to relight all the others. Fire-keeping here isn't a one-time theft in deep mythic time — it's a recurring civic duty, performed on schedule, or (it was believed) the world ends."
+    }
   ]
 }

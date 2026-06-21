@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Serpent Forms: Bird, Fire, and the Shapes We Fear • Interactive Explorer</title>
+<link rel="stylesheet" href="../assets/leaflet/leaflet.css" />
+<script src="../assets/leaflet/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500&display=swap');
+
+  body { margin:0; font-family: 'Inter', system-ui, sans-serif; background: #0f0e0a; color: #f5f0e1; overflow: hidden; }
+  #map { height: 100vh; width: 100%; }
+  .leaflet-container { background: #141310; }
+
+  #panel {
+    position: fixed; top: 24px; bottom: 24px; right: 24px; width: 400px;
+    background: rgba(20, 19, 16, 0.96); border: 1px solid #5c5240; border-radius: 16px;
+    padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); z-index: 1000;
+    overflow: hidden; display: none; flex-direction: column;
+    animation: panelPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes panelPop { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  #panel-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  #panel img { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; margin-bottom: 18px; border: 1px solid #5c5240; background: #1a1814; cursor: zoom-in; }
+  #panel h2 { margin: 0 0 12px 0; color: #e8d5a3; font-family: 'Playfair Display', Georgia, serif; font-size: 22px; line-height: 1.2; }
+  #panel p { line-height: 1.7; color: #d4c9b0; font-size: 15px; margin-bottom: 16px; }
+  #close-panel { float: right; background: none; border: none; color: #8a7f68; font-size: 26px; cursor: pointer; line-height: 1; padding: 0 4px; }
+  #close-panel:hover { color: #e8d5a3; }
+
+  /* Each action is a row: a non-clickable title pill, then a separate small
+     clickable button -- mirrors timeline-pt.html's "Axis Mundi" / "Read more"
+     pattern, so it's clear the title is a label and only the button opens
+     anything. */
+  /* Sits OUTSIDE #panel-scroll, between the (scrollable) body text and the
+     (fixed) tour forks below -- so a long stop's text can never push Deep
+     Dive / Learn More out of view. Always visible (when it has content),
+     not part of the scroll. Hidden entirely (incl. its divider) on stops
+     with neither a Deep Dive nor a Learn More. */
+  #panel-actions { display: none; flex-direction: column; gap: 8px; flex-shrink: 0; margin-top: 12px; padding-top: 12px; border-top: 1px solid #3a352c; }
+  .action-row { display: none; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .action-label {
+    background: #3c2f1f; color: #d4c9b0; border: 1px solid #5c5240;
+    padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 500;
+    white-space: nowrap;
+  }
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 999px;
+    padding: 9px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  #action-deepdive { background: #e8d9b8; color: #3c2f1f; border: 1px solid #c8b060; }
+  #action-deepdive:hover { background: #f0e6cc; }
+  #action-learnmore { background: #4a3828; color: #f0e8d0; border: 1px solid #8B6914; }
+  #action-learnmore:hover { background: #5c4730; }
+
+  #tour-forks {
+    display: none; flex-direction: column; flex-shrink: 0; margin-top: 14px;
+    padding-top: 14px; border-top: 1px solid #5c5240; gap: 10px;
+  }
+  #tour-counter { text-align: center; font-size: 11px; color: #8a7f68; font-family: monospace; }
+  #tour-buttons-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  #tour-back-btn, .fork-btn, a.fork-btn {
+    flex: 1 1 auto; min-width: 108px; border: none; padding: 13px 18px; border-radius: 999px;
+    font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: center; display: flex;
+    align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease;
+    text-decoration: none; box-sizing: border-box;
+  }
+  #tour-back-btn { background: #5c4730; color: #f0e8d0; flex-grow: 0; }
+  #tour-back-btn:hover { background: #8B6914; color: white; }
+  #tour-back-btn.hidden { visibility: hidden; }
+  .fork-btn, a.fork-btn { background: #8B6914; color: white; }
+  .fork-btn:hover, a.fork-btn:hover { background: #a67c1f; transform: translateY(-1px); }
+  .fork-btn.choice { background: #5c4730; }
+  .fork-btn.choice:hover { background: #8B6914; }
+
+  #start-tour {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(145deg, #8B6914, #6b4f0f); color: #f5f0e1; border: none;
+    padding: 14px 32px; border-radius: 999px; font-size: 15px; font-weight: 600; cursor: pointer;
+    z-index: 1001; box-shadow: 0 8px 25px rgba(139, 105, 20, 0.5); display: flex; align-items: center; gap: 10px;
+  }
+  #start-tour:hover { box-shadow: 0 12px 35px rgba(139, 105, 20, 0.7); transform: translateX(-50%) translateY(-2px); }
+
+  #img-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: none; align-items: center; justify-content: center; z-index: 2000; cursor: zoom-out; }
+  #img-lightbox.open { display: flex; }
+  #img-lightbox img { max-width: 94vw; max-height: 82vh; border-radius: 10px; }
+
+  /* Deep Dive overlay -- iframe-in-a-panel (story_url pattern, not the Google-Docs deepdive_url one) */
+  #deepdive-overlay { display: none; position: fixed; inset: 0; z-index: 2500; background: rgba(10,9,6,0.85); }
+  #deepdive-overlay.open { display: block; }
+  #deepdive-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 46%; min-width: 340px; max-width: 600px;
+    background: #faf6ec; border-left: 2px solid #8B6914; display: flex; flex-direction: column;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.6); transform: translateX(100%); transition: transform 0.3s ease;
+  }
+  #deepdive-overlay.open #deepdive-panel { transform: translateX(0); }
+  #deepdive-header {
+    background: #2a2722; color: #e8d5a3; padding: 12px 16px; display: flex; align-items: center;
+    justify-content: space-between; flex-shrink: 0; gap: 12px;
+  }
+  #deepdive-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  #deepdive-close {
+    background: rgba(255,255,255,0.1); border: none; color: #e8d5a3; font-size: 16px; line-height: 1;
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #deepdive-close:hover { background: rgba(255,255,255,0.2); }
+  #deepdive-iframe { flex: 1; width: 100%; border: none; background: #faf6ec; }
+
+  /* Learn More overlay -- gallery in a panel, ported from timeline-pt.html, recolored */
+  #learnmore-overlay { display: none; position: fixed; inset: 0; z-index: 2500; background: rgba(10, 9, 6, 0.85); }
+  #learnmore-overlay.open { display: block; }
+  #learnmore-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 42%; min-width: 320px; max-width: 460px;
+    background: #1a1814; border-left: 2px solid #8B6914; display: flex; flex-direction: column;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.6); transform: translateX(100%); transition: transform 0.3s ease;
+  }
+  #learnmore-overlay.open #learnmore-panel { transform: translateX(0); }
+  #learnmore-header { background: #2a2722; color: #e8d5a3; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 10px; }
+  #learnmore-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #learnmore-close { background: rgba(255,255,255,0.1); border: none; color: #e8d5a3; font-size: 16px; line-height: 1; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  #learnmore-close:hover { background: rgba(255,255,255,0.2); }
+  #learnmore-image-wrap { position: relative; flex-shrink: 0; background: #0d0a06; overflow: hidden; }
+  #learnmore-img { display: block; width: 100%; height: 260px; object-fit: cover; transition: opacity 0.3s ease; }
+  #learnmore-img.fade { opacity: 0; }
+  #learnmore-counter { position: absolute; bottom: 10px; right: 12px; background: rgba(0,0,0,0.6); color: #d4c9b0; font-size: 10px; font-family: monospace; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 999px; }
+  #learnmore-caption { flex: 1; overflow-y: auto; padding: 20px 22px; -webkit-overflow-scrolling: touch; }
+  #learnmore-caption-text { font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.75; color: #d4c9b0; }
+  #learnmore-caption-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #c9962c; margin-bottom: 8px; }
+  #learnmore-nav { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-top: 1px solid #5c5240; flex-shrink: 0; background: #1a1814; }
+  .lm-nav-btn { background: #2a2722; border: 1px solid #5c5240; color: #d4c9b0; font-size: 13px; padding: 7px 18px; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center; gap: 6px; }
+  .lm-nav-btn:hover:not(:disabled) { background: #5c4730; color: #f0e8d0; }
+  .lm-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  #learnmore-step-dots { display: flex; gap: 6px; align-items: center; }
+  .lm-dot { width: 6px; height: 6px; border-radius: 50%; background: #5c4730; transition: background 0.2s; cursor: pointer; }
+  .lm-dot.active { background: #c9962c; }
+
+  @media (max-width: 700px) {
+    #panel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 60vh; border-radius: 16px 16px 0 0; border-left: none; border-right: none; border-bottom: none; }
+    #panel img { max-height: 110px; }
+    #panel { display: flex; flex-direction: column; }
+    #start-tour { bottom: 16px; padding: 12px 24px; font-size: 14px; }
+    #deepdive-panel, #learnmore-panel {
+      position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-width: 100%; height: 82dvh;
+      border-left: none; border-top: 2px solid #8B6914; border-radius: 16px 16px 0 0; transform: translateY(100%);
+    }
+    #deepdive-overlay.open #deepdive-panel, #learnmore-overlay.open #learnmore-panel { transform: translateY(0); }
+    #learnmore-img { height: 200px; }
+  }
+
+  .leaflet-tooltip { background: rgba(20, 19, 16, 0.95) !important; color: #e8d5a3 !important; border: 1px solid #5c5240 !important; font-size: 13px; padding: 6px 10px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<button id="start-tour" onclick="startGuidedTour()">
+  <span>▶</span>
+  <span>Begin Guided Journey</span>
+</button>
+
+<div id="panel">
+  <button id="close-panel" onclick="closePanel()">×</button>
+  <div id="panel-scroll">
+    <img id="panel-image" src="" alt="">
+    <h2 id="panel-title"></h2>
+    <p id="panel-text"></p>
+  </div>
+  <div id="panel-actions">
+    <div class="action-row" id="row-deepdive">
+      <span class="action-label" id="label-deepdive"></span>
+      <button id="action-deepdive" class="action-btn">📖 Deep Dive →</button>
+    </div>
+    <div class="action-row" id="row-learnmore">
+      <span class="action-label" id="label-learnmore"></span>
+      <button id="action-learnmore" class="action-btn">🖼 Learn More →</button>
+    </div>
+  </div>
+  <div id="tour-forks">
+    <div id="tour-counter"></div>
+    <div id="tour-buttons-row">
+      <button id="tour-back-btn" onclick="goBack()">← Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="img-lightbox" onclick="this.classList.remove('open')">
+  <img id="img-lightbox-img" src="" alt="">
+</div>
+
+<div id="deepdive-overlay" onclick="closeDeepDive(event)">
+  <div id="deepdive-panel">
+    <div id="deepdive-header">
+      <span id="deepdive-title">Deep Dive</span>
+      <button id="deepdive-close" onclick="closeDeepDive()">✕</button>
+    </div>
+    <iframe id="deepdive-iframe" src="about:blank" title="Deep dive content"></iframe>
+  </div>
+</div>
+
+<div id="learnmore-overlay" onclick="closeLearnMore(event)">
+  <div id="learnmore-panel">
+    <div id="learnmore-header">
+      <span id="learnmore-title">Learn More</span>
+      <button id="learnmore-close" onclick="closeLearnMore()">✕</button>
+    </div>
+    <div id="learnmore-image-wrap">
+      <img id="learnmore-img" src="" alt="">
+      <span id="learnmore-counter"></span>
+    </div>
+    <div id="learnmore-caption">
+      <div id="learnmore-caption-label"></div>
+      <div id="learnmore-caption-text"></div>
+    </div>
+    <div id="learnmore-nav">
+      <button class="lm-nav-btn" id="lm-prev" onclick="lmChangeSlide(-1)">← Prev</button>
+      <div id="learnmore-step-dots"></div>
+      <button class="lm-nav-btn" id="lm-next" onclick="lmChangeSlide(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === SERPENT FORMS: BIRD, FIRE, AND THE SHAPES WE FEAR ===
+// Companion tour to "tour_prometheus_eras.html". This one covers the bird/
+// serpent dialectic (Garuda/naga, the eagle-and-serpent emblem, the dragon as
+// winged serpent) and the fire-keeping material, deliberately WITHOUT
+// repeating the Prometheus/Satan/etc. chain -- that content stays in the
+// other tour, and this one links over to it instead of duplicating it.
+// Guided tour starts at the crossroads, this tour's own front door.
+
+const FEATHER_ICON = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExODE0Ii8+CjxwYXRoIGQ9Ik0xMDAgMjAgQzEwMCAyMCA2MCA1MCA1NSAxMDAgQzUwIDE1MCA4MCAxNzUgMTAwIDE4MCBDMTAwIDE0MCAxMDAgMTAwIDEwMCA2MCBDMTAwIDYwIDEzMCA3MCAxNDAgOTAiCmZpbGw9Im5vbmUiIHN0cm9rZT0iI2M5OTYyYyIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPHBhdGggZD0iTTEwMCA2MCBMNzAgNTAgTTEwMCA4MCBMNjUgNzUgTTEwMCAxMDAgTDYyIDEwMCBNMTAwIDEyMCBMNjYgMTI4IE0xMDAgMTQwIEw3MiAxNTIiCnN0cm9rZT0iI2M5OTYyYyIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPGNpcmNsZSBjeD0iMTAwIiBjeT0iMjIiIHI9IjUiIGZpbGw9IiNlOGQ1YTMiLz4KPC9zdmc+";
+const FLAME_ICON = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExODE0Ii8+CjxwYXRoIGQ9Ik0xMDAgMTc1IEM3MCAxNzUgNTAgMTUwIDUwIDEyMCBDNTAgOTUgNjUgODUgNjUgNjUgQzY1IDUwIDc1IDM1IDg1IDMwIEM4MCA1MCA5MCA2MCA5NSA1MCBDMTAwIDQwIDk1IDI1IDEwMCAxNSBDMTE1IDM1IDEzMCA1NSAxMzAgOTAgQzEzMCAxMDAgMTQwIDk1IDE0MCA4MCBDMTUwIDEwMCAxNTAgMTMwIDEzNSAxNTUgQzEyNSAxNzAgMTE1IDE3NSAxMDAgMTc1IFoiCmZpbGw9Im5vbmUiIHN0cm9rZT0iI2M5OTYyYyIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPGNpcmNsZSBjeD0iMTAwIiBjeT0iMTcwIiByPSI0IiBmaWxsPSIjZThkNWEzIi8+Cjwvc3ZnPg==";
+const SERPENT_ICON = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExODE0Ii8+CjxwYXRoIGQ9Ik0xMDAgMzAgQzQwIDMwIDMwIDcwIDYwIDkwIEM5MCAxMTAgMTQwIDkwIDE0MCA2MCBDMTQwIDQwIDExMCAzNSAxMDAgNTUgQzkwIDc1IDEyMCA4NSAxMzAgNjUgQzE0MCA0NSAxMTUgMjUgOTAgNDAgQzYwIDU4IDU1IDEwMCA5MCAxMjAgQzEyNSAxNDAgMTUwIDExMCAxNDAgODAiCmZpbGw9Im5vbmUiIHN0cm9rZT0iI2M5OTYyYyIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPGNpcmNsZSBjeD0iMTAwIiBjeT0iMzAiIHI9IjgiIGZpbGw9IiNlOGQ1YTMiLz4KPGNpcmNsZSBjeD0iMTAzIiBjeT0iMjgiIHI9IjEuNiIgZmlsbD0iIzFhMTgxNCIvPgo8L3N2Zz4K";
+
+const motifs = [
+  {
+    id: "crossroads",
+    lat: 1000.0, lng: 1150.0,
+    label: "Bird forms, or serpent forms?",
+    subtitle: "Choose a path -- you can always wander back",
+    image: FLAME_ICON,
+    text: "Garuda against the naga. An eagle with a snake in its talons. A dragon that is, structurally, just a serpent that grew wings. This tour asks why so many traditions independently invent the same image of sky-creature against earth-creature -- and what happens when fire enters the picture as the thing both sides seem to be fighting over.",
+    deepdiveUrl: "deepdives/prometheus-across-eras.html",
+    deepdiveTitle: "Hesiod, Aeschylus, Shelley",
+    forks: [
+      { label: "Follow the bird & serpent forms →", target: "naga-garuda", choice: true },
+      { label: "Go straight to the fire →", target: "fire-mechanics", choice: true },
+      { label: "Explore Prometheus, across the eras →", href: "tour_prometheus_eras.html", choice: true }
+    ]
+  },
+  {
+    id: "naga-garuda",
+    lat: 1080.0, lng: 950.0,
+    label: "Garuda vs. the Naga",
+    subtitle: "South & Southeast Asia • a living tradition",
+    image: FEATHER_ICON,
+    text: "Garuda, Vishnu's bird-man mount, is shown again and again gripping a naga -- a serpent deity -- in his talons. It's the same opposition this tour keeps circling (sky power against earth/water power), but here it's not buried in an old text: naga and Garuda imagery still decorates temples and palaces across Thailand, Cambodia, Laos, and Indonesia today. This is mythology you can still go and look at.",
+    learnMoreId: "prometheus-naga-garuda",
+    forks: [ { label: "The same shape, on the other side of the world →", target: "eagle-serpent-world" } ]
+  },
+  {
+    id: "eagle-serpent-world",
+    lat: 1150.0, lng: 800.0,
+    label: "The Eagle and the Serpent",
+    subtitle: "Independently invented, continents apart",
+    image: FEATHER_ICON,
+    text: "The Aztec founding emblem for Tenochtitlan -- an eagle on a cactus, a serpent in its talons -- is, on its face, the same image as Garuda and the naga, arrived at with no contact between the two traditions. Eagles really do kill snakes in many parts of the world; myth may simply be tracking something true rather than inventing it from nothing.",
+    learnMoreId: "prometheus-eagle-serpent",
+    forks: [ { label: "From living bird to coiled dragon →", target: "dragon-winged-serpent" } ]
+  },
+  {
+    id: "dragon-winged-serpent",
+    lat: 1050.0, lng: 650.0,
+    label: "The Dragon: a Winged Serpent",
+    subtitle: "China, Europe, and everywhere between",
+    image: SERPENT_ICON,
+    text: "Strip the fantasy-genre packaging off a dragon and what's left is structurally a serpent that has acquired wings -- bird and serpent fused into one body rather than opposed, as they were with Garuda and the naga. China's water-and-weather dragons and Europe's hoard-guarding, fire-breathing dragons take the same fusion in very different directions. Quetzalcoatl, the feathered serpent, takes it further still: bird and serpent simply are each other.",
+    learnMoreId: "prometheus-dragon",
+    forks: [ { label: "Now, the fire they all seem to guard →", target: "fire-mechanics" } ]
+  },
+  {
+    id: "fire-mechanics",
+    lat: 880.0, lng: 900.0,
+    label: "Keeping Fire Alive",
+    subtitle: "From a hollow fennel stalk to a 52-year ritual",
+    image: FLAME_ICON,
+    text: "Step back from the symbolism and look at the bare mechanics: how do you actually carry a stolen ember without it dying en route? Aeschylus says a hollow fennel stalk; another source says a hollow reed; a third skips the container and credits fire-by-friction instead. Half a world away, the Aztec New Fire Ceremony makes fire-keeping a recurring civic duty rather than a one-time theft -- every hearth in the empire extinguished and relit from a single new flame, roughly every 52 years, or (it was believed) the world ends.",
+    deepdiveUrl: "deepdives/fire-mechanics.html",
+    deepdiveTitle: "Keeping Fire Alive",
+    learnMoreId: "prometheus-fire",
+    forks: [
+      { label: "Back to the crossroads →", target: "crossroads" },
+      { label: "Explore Prometheus, across the eras →", href: "tour_prometheus_eras.html", choice: true },
+      { label: "End the tour here", target: "__end__", choice: true }
+    ]
+  }
+];
+
+let map;
+let currentNodeId = null;
+let tourHistory = [];
+let isTourActive = false;
+let LEARN_MORE_STEPS = {};
+let lmSteps = [];
+let lmIndex = 0;
+
+function nodeById(id) { return motifs.find(function(m) { return m.id === id; }); }
+
+function initMap() {
+  map = L.map('map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 5, zoomControl: true, attributionControl: false });
+
+  map.on('click', function() {
+    var panel = document.getElementById('panel');
+    if (panel.style.display === 'flex') closePanel();
+  });
+
+  const imageUrl = "images/landing-giga.png";
+  const img = new Image();
+  img.onload = function() {
+    const bounds = [[0, 0], [img.height, img.width]];
+    L.imageOverlay(imageUrl, bounds).addTo(map);
+
+    const markerPositions = [];
+    motifs.forEach(function(motif) {
+      const marker = L.marker([motif.lat, motif.lng]).addTo(map);
+      marker.bindTooltip(
+        '<b>' + motif.label + '</b><br><span style="font-size:11px;opacity:0.8">' + motif.subtitle + '</span>',
+        { direction: 'top', offset: [0, -8], className: 'custom-tooltip' }
+      );
+      marker.on('click', function() {
+        if (isTourActive) {
+          isTourActive = false;
+          document.getElementById('tour-forks').style.display = 'none';
+          document.getElementById('start-tour').style.display = 'flex';
+        }
+        showPanel(motif, false);
+      });
+      markerPositions.push([motif.lat, motif.lng]);
+    });
+
+    function fitView() {
+      map.invalidateSize();
+      if (markerPositions.length > 0) {
+        map.fitBounds(L.latLngBounds(markerPositions), { padding: [140, 160] });
+      } else {
+        map.fitBounds(bounds, { padding: [60, 60] });
+      }
+    }
+    fitView();
+
+    let hadNoSize = map.getSize().x === 0 || map.getSize().y === 0;
+    new ResizeObserver(function() {
+      map.invalidateSize();
+      const s = map.getSize();
+      if (hadNoSize && s.x > 0 && s.y > 0) { fitView(); hadNoSize = false; }
+    }).observe(document.getElementById('map'));
+  };
+  img.src = imageUrl;
+}
+
+function loadLearnMore() {
+  fetch('data/learn-more.json')
+    .then(function(res) { return res.ok ? res.json() : {}; })
+    .then(function(json) { LEARN_MORE_STEPS = json || {}; })
+    .catch(function(e) { console.warn('Learn More data not loaded:', e); });
+}
+
+function showPanel(motif, isTourMode) {
+  document.getElementById('panel-image').src = motif.image;
+  document.getElementById('panel-title').innerHTML =
+    motif.label + ' <span style="font-size:13px; font-weight:400; color:#8a7f68; display:block; margin-top:2px;">' + motif.subtitle + '</span>';
+  document.getElementById('panel-text').textContent = motif.text;
+  document.getElementById('panel-scroll').scrollTop = 0;
+
+  renderActions(motif);
+
+  const panel = document.getElementById('panel');
+  const forksEl = document.getElementById('tour-forks');
+  panel.style.display = 'flex';
+
+  if (isTourMode) {
+    forksEl.style.display = 'flex';
+    renderForks(motif);
+  } else {
+    forksEl.style.display = 'none';
+  }
+}
+
+function renderActions(motif) {
+  const actionsEl = document.getElementById('panel-actions');
+  const ddRow = document.getElementById('row-deepdive');
+  const ddLabel = document.getElementById('label-deepdive');
+  const ddBtn = document.getElementById('action-deepdive');
+  const lmRow = document.getElementById('row-learnmore');
+  const lmLabel = document.getElementById('label-learnmore');
+  const lmBtn = document.getElementById('action-learnmore');
+
+  if (motif.deepdiveUrl) {
+    ddRow.style.display = 'flex';
+    ddLabel.textContent = motif.deepdiveTitle || 'Deep Dive';
+    ddBtn.onclick = function() { openDeepDive(motif.deepdiveUrl, motif.deepdiveTitle || motif.label); };
+  } else {
+    ddRow.style.display = 'none';
+  }
+
+  const hasLearnMore = motif.learnMoreId && LEARN_MORE_STEPS[motif.learnMoreId] && LEARN_MORE_STEPS[motif.learnMoreId].length;
+  if (hasLearnMore) {
+    lmRow.style.display = 'flex';
+    lmLabel.textContent = motif.label;
+    lmBtn.onclick = function() { openLearnMore(motif.learnMoreId, motif.label); };
+  } else {
+    lmRow.style.display = 'none';
+  }
+
+  // Container (including its divider line) only shows up when it has something in it.
+  actionsEl.style.display = (motif.deepdiveUrl || hasLearnMore) ? 'flex' : 'none';
+}
+
+function closePanel() {
+  document.getElementById('panel').style.display = 'none';
+  isTourActive = false;
+  document.getElementById('tour-forks').style.display = 'none';
+  document.getElementById('start-tour').style.display = 'flex';
+}
+
+function startGuidedTour() {
+  tourHistory = [];
+  isTourActive = true;
+  document.getElementById('start-tour').style.display = 'none';
+  goToNode('crossroads', true);
+}
+
+function goToNode(id, pushHistory) {
+  if (id === '__end__') { closePanel(); return; }
+  const node = nodeById(id);
+  if (!node) return;
+  if (pushHistory) tourHistory.push(id);
+  currentNodeId = id;
+  showPanel(node, true);
+  flyToNode(node);
+}
+
+function goBack() {
+  if (tourHistory.length <= 1) return;
+  tourHistory.pop();
+  const prevId = tourHistory[tourHistory.length - 1];
+  currentNodeId = prevId;
+  const node = nodeById(prevId);
+  showPanel(node, true);
+  flyToNode(node);
+}
+
+function flyToNode(motif) {
+  const target = L.latLng(motif.lat, motif.lng);
+  const zoomLvl = 2.8;
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    const pt = map.project(target, zoomLvl);
+    pt.y += map.getSize().y * 0.26;
+    map.flyTo(map.unproject(pt, zoomLvl), zoomLvl, { duration: 2.2, easeLinearity: 0.25 });
+  } else {
+    map.flyTo(target, zoomLvl, { duration: 2.2, easeLinearity: 0.25 });
+  }
+}
+
+function renderForks(motif) {
+  // Counter is each marker's fixed position in this tour's own motifs array --
+  // not how the visitor got here. Forking or wandering off and back doesn't
+  // change it: "stop 3 of 5 markers on this tour", full stop.
+  const idx = motifs.indexOf(motif);
+  document.getElementById('tour-counter').textContent = (idx + 1) + ' / ' + motifs.length;
+
+  document.getElementById('tour-back-btn').classList.toggle('hidden', tourHistory.length <= 1);
+
+  const row = document.getElementById('tour-buttons-row');
+  row.querySelectorAll('.fork-btn').forEach(function(el) { el.remove(); });
+
+  (motif.forks || []).forEach(function(fork) {
+    let el;
+    if (fork.href) {
+      el = document.createElement('a');
+      el.href = fork.href;
+    } else {
+      el = document.createElement('button');
+      el.onclick = function() { goToNode(fork.target, true); };
+    }
+    el.className = 'fork-btn' + (fork.choice ? ' choice' : '');
+    el.textContent = fork.label;
+    row.appendChild(el);
+  });
+}
+
+// === DEEP DIVE (iframe-in-a-panel) ===
+function openDeepDive(url, title) {
+  document.getElementById('deepdive-title').textContent = title || 'Deep Dive';
+  document.getElementById('deepdive-iframe').src = url;
+  document.getElementById('deepdive-overlay').classList.add('open');
+}
+function closeDeepDive(e) {
+  if (e && e.target !== document.getElementById('deepdive-overlay')) return;
+  document.getElementById('deepdive-overlay').classList.remove('open');
+  document.getElementById('deepdive-iframe').src = 'about:blank';
+}
+
+// === LEARN MORE (ported from timeline-pt.html: same ids, same data flow) ===
+function openLearnMore(stepsId, title) {
+  const steps = LEARN_MORE_STEPS[stepsId];
+  if (!steps || !steps.length) return;
+  lmSteps = steps;
+  lmIndex = 0;
+  document.getElementById('learnmore-title').textContent = title || 'Learn More';
+  document.getElementById('learnmore-overlay').classList.add('open');
+  lmRenderSlide();
+}
+function closeLearnMore(e) {
+  if (e && e.target !== document.getElementById('learnmore-overlay')) return;
+  document.getElementById('learnmore-overlay').classList.remove('open');
+}
+function lmRenderSlide() {
+  const step = lmSteps[lmIndex];
+  const img = document.getElementById('learnmore-img');
+  img.classList.add('fade');
+  setTimeout(function() {
+    img.src = step.image;
+    img.alt = step.label;
+    img.onload = function() { img.classList.remove('fade'); };
+    img.onerror = function() { img.classList.remove('fade'); };
+  }, 250);
+  document.getElementById('learnmore-caption-label').textContent = step.label;
+  document.getElementById('learnmore-caption-text').textContent = step.caption;
+  document.getElementById('learnmore-counter').textContent = (lmIndex + 1) + ' / ' + lmSteps.length;
+  document.getElementById('lm-prev').disabled = (lmIndex === 0);
+  document.getElementById('lm-next').disabled = (lmIndex === lmSteps.length - 1);
+  const dotsEl = document.getElementById('learnmore-step-dots');
+  dotsEl.innerHTML = '';
+  lmSteps.forEach(function(_, i) {
+    const dot = document.createElement('span');
+    dot.className = 'lm-dot' + (i === lmIndex ? ' active' : '');
+    dot.onclick = (function(idx) { return function() { lmIndex = idx; lmRenderSlide(); }; })(i);
+    dotsEl.appendChild(dot);
+  });
+}
+function lmChangeSlide(delta) {
+  const next = lmIndex + delta;
+  if (next >= 0 && next < lmSteps.length) {
+    lmIndex = next;
+    lmRenderSlide();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const ddOverlay = document.getElementById('deepdive-overlay');
+    const lmOverlay = document.getElementById('learnmore-overlay');
+    if (ddOverlay.classList.contains('open')) {
+      closeDeepDive();
+    } else if (lmOverlay.classList.contains('open')) {
+      closeLearnMore();
+    } else {
+      const panel = document.getElementById('panel');
+      if (panel.style.display === 'flex') {
+        closePanel();
+      } else if (window.parent !== window) {
+        window.parent.postMessage('close-story', '*');
+      }
+    }
+  }
+  if (e.key.toLowerCase() === 't' && document.getElementById('panel').style.display !== 'flex') {
+    startGuidedTour();
+  }
+});
+
+document.getElementById('panel-image').addEventListener('click', function() {
+  document.getElementById('img-lightbox-img').src = this.src;
+  document.getElementById('img-lightbox').classList.add('open');
+});
+
+window.onload = function() {
+  initMap();
+  loadLearnMore();
+};
+</script>
+</body>
+</html>

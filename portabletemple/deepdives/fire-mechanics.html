@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keeping Fire Alive — Deep Dive · Kingdom of the Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#2b2620; --sepia:#8B6914; --rule:#d4c4a8; --parchment:#faf6ec; --muted:#9b8f78; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--parchment); color:var(--ink);
+         font-family:'Cormorant Garamond', Georgia, serif; font-size:1.22rem; line-height:1.65; }
+  .page-head { font-family:'Jost',sans-serif; font-size:0.62rem; letter-spacing:0.18em;
+               text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--rule);
+               padding:1.1rem 1.5rem; display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+  .page-head a { color:var(--sepia); text-decoration:none; }
+  .page-head a:hover { text-decoration:underline; }
+  main { max-width:680px; margin:3rem auto; padding:0 1.5rem; }
+  h1,h2,h3 { font-family:'Cormorant Garamond', Georgia, serif; color:var(--sepia); line-height:1.2; }
+  h1 { font-size:2.2rem; font-weight:400; border-bottom:1px solid var(--rule); padding-bottom:.4rem; }
+  h2 { font-size:1.6rem; font-weight:400; margin-top:2.2rem; }
+  p  { margin:0 0 1.1rem; }
+  em { font-style: italic; }
+  blockquote { margin: 1.2rem 0; padding: .2rem 1.2rem; border-left: 3px solid var(--rule); color: var(--muted); font-style: italic; }
+  .source { font-family:'Jost',sans-serif; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.02em; margin-top: -0.6rem; margin-bottom: 1.4rem; }
+  .note { background:#f0e6cc; border:1px solid var(--rule); border-radius:8px; padding:1rem 1.2rem; font-size:1.02rem; margin: 1.4rem 0; }
+  .onward { font-family:'Jost',sans-serif; font-size: 0.85rem; border-top:1px solid var(--rule); margin-top: 2.4rem; padding-top: 1.4rem; }
+  .onward p { font-size: 0.95rem; font-style: italic; color: var(--muted); margin-bottom: 0; }
+  .page-foot { font-family:'Jost',sans-serif; font-size:0.62rem; letter-spacing:0.14em;
+               text-transform:uppercase; color:var(--muted); border-top:1px solid var(--rule);
+               margin-top:3rem; padding:1.5rem; text-align:center; }
+  .page-foot a { color:var(--sepia); text-decoration:none; }
+</style>
+</head>
+<body>
+  <div class="page-head">
+    <span>Kingdom of the Center · Deep Dive</span>
+  </div>
+  <main id="contents">
+    <h1>Keeping Fire Alive</h1>
+    <p>Step back from the symbolism for a moment and look at the story as a technical problem: how, exactly, do you steal a live ember from the gods and carry it to earth without it going out along the way? The ancient sources don't agree, but both of their answers are about the practical mechanics of fire-keeping.</p>
+
+    <blockquote>PROMETHEUS:<br>… I stole the light-giving fire,<br>Hidden within a hollow fennel stalk.</blockquote>
+    <p class="source">— Aeschylus, <em>Prometheus Bound</em></p>
+
+    <p>One version says Prometheus hollowed out a giant fennel stalk and packed it with embers — fennel (<em>Ferula communis</em>) grows commonly all over Greece, especially around Phalerum near Athens, and in Lesbos the plant is still called <em>narthêka</em> / <em>narthêx</em>, a survival of the old word for the reed that carried fire down from heaven.</p>
+
+    <blockquote>Prometheus stole fire from heaven by hiding it in a hollow reed.</blockquote>
+    <p class="source">— Pseudo-Apollodorus, <em>Bibliotheca</em>, 1.7.2</p>
+
+    <p>A second version says he used a hollow reed instead, then flew down and gave the fire to humanity directly. Taken together, the two tellings are really offering two practical answers to the same engineering question: what kind of container keeps a live ember alive in transit? Both need a stalk that won't itself catch fire too fast, and both depend on a slow, smoldering burn rather than an open flame.</p>
+    <p>A third account, from Diodorus Siculus, skips the container altogether and explains the myth as a folk memory of the invention of fire-sticks — fire made by friction rather than carried as an ember. "Stories of the original theft of fire are widespread among mankind" is itself an old observation (Frazer's appendix to Apollodorus, on "Myths of the Origin of Fire," catalogues the type across many unrelated cultures) — the fennel/narthex detail is the regionally specific Greek version of a near-universal motif: humanity didn't always have fire, and getting it took a theft, a trick, or a discovery, in story after story.</p>
+
+    <div class="note"><strong>A small etymological trail:</strong> the Greek <em>narthêx</em> (giant fennel) is the root of the Latin <em>nartheka</em> and, eventually, of "narthex" — the entrance porch of a church, traditionally where catechumens and penitents waited before being allowed inside. A word for the plant that carried fire from the gods to humanity ends up, centuries later, naming the threshold of a sacred building. Worth sitting with.</div>
+
+    <h2>Aztec fire, by contrast</h2>
+    <p>Where the Greek tradition tells a story about a single theft, Mesoamerican traditions made the <em>maintenance</em> of fire itself a recurring civic-religious event. The Aztec New Fire Ceremony, held roughly every 52 years at the close of a calendar cycle, involved extinguishing every hearth fire in the empire and rekindling a single new flame — by friction, on a sacrificial victim's chest, on a hilltop — which was then carried by runners to relight every other fire from that one source. Fire-starting wasn't an origin myth here so much as an ongoing ritual responsibility: the world itself was understood to be at risk of ending unless the fire was successfully restarted. Two very different relationships to the same elemental problem — one culture's myth is about a single act of theft in deep time; the other's is a recurring civic duty that has to be performed correctly, on schedule, or the world ends.</p>
+
+    <div class="onward">
+      <p>Click anywhere outside this panel to return to the tour and keep exploring.</p>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prometheus, Across the Eras • Interactive Explorer</title>
+<link rel="stylesheet" href="../assets/leaflet/leaflet.css" />
+<script src="../assets/leaflet/leaflet.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500&display=swap');
+
+  body { margin:0; font-family: 'Inter', system-ui, sans-serif; background: #0f0e0a; color: #f5f0e1; overflow: hidden; }
+  #map { height: 100vh; width: 100%; }
+  .leaflet-container { background: #141310; }
+
+  #panel {
+    position: fixed; top: 24px; bottom: 24px; right: 24px; width: 400px;
+    background: rgba(20, 19, 16, 0.96); border: 1px solid #5c5240; border-radius: 16px;
+    padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); z-index: 1000;
+    overflow: hidden; display: none; flex-direction: column;
+    animation: panelPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes panelPop { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  #panel-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+  #panel img { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; margin-bottom: 18px; border: 1px solid #5c5240; background: #1a1814; cursor: zoom-in; }
+  #panel h2 { margin: 0 0 12px 0; color: #e8d5a3; font-family: 'Playfair Display', Georgia, serif; font-size: 22px; line-height: 1.2; }
+  #panel p { line-height: 1.7; color: #d4c9b0; font-size: 15px; margin-bottom: 16px; }
+  #close-panel { float: right; background: none; border: none; color: #8a7f68; font-size: 26px; cursor: pointer; line-height: 1; padding: 0 4px; }
+  #close-panel:hover { color: #e8d5a3; }
+
+  /* Each action is a row: a non-clickable title pill, then a separate small
+     clickable button -- mirrors timeline-pt.html's "Axis Mundi" / "Read more"
+     pattern, so it's clear the title is a label and only the button opens
+     anything. */
+  /* Sits OUTSIDE #panel-scroll, between the (scrollable) body text and the
+     (fixed) tour forks below -- so a long stop's text can never push Deep
+     Dive / Learn More out of view. Always visible (when it has content),
+     not part of the scroll. Hidden entirely (incl. its divider) on stops
+     with neither a Deep Dive nor a Learn More. */
+  #panel-actions { display: none; flex-direction: column; gap: 8px; flex-shrink: 0; margin-top: 12px; padding-top: 12px; border-top: 1px solid #3a352c; }
+  .action-row { display: none; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .action-label {
+    background: #3c2f1f; color: #d4c9b0; border: 1px solid #5c5240;
+    padding: 7px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 500;
+    white-space: nowrap;
+  }
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 999px;
+    padding: 9px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  #action-deepdive { background: #e8d9b8; color: #3c2f1f; border: 1px solid #c8b060; }
+  #action-deepdive:hover { background: #f0e6cc; }
+
+  #tour-forks {
+    display: none; flex-direction: column; flex-shrink: 0; margin-top: 14px;
+    padding-top: 14px; border-top: 1px solid #5c5240; gap: 10px;
+  }
+  #tour-counter { text-align: center; font-size: 11px; color: #8a7f68; font-family: monospace; }
+  #tour-buttons-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  #tour-back-btn, .fork-btn, a.fork-btn {
+    flex: 1 1 auto; min-width: 108px; border: none; padding: 13px 18px; border-radius: 999px;
+    font-size: 14.5px; font-weight: 600; cursor: pointer; text-align: center; display: flex;
+    align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease;
+    text-decoration: none; box-sizing: border-box;
+  }
+  #tour-back-btn { background: #5c4730; color: #f0e8d0; flex-grow: 0; }
+  #tour-back-btn:hover { background: #8B6914; color: white; }
+  #tour-back-btn.hidden { visibility: hidden; }
+  .fork-btn, a.fork-btn { background: #8B6914; color: white; }
+  .fork-btn:hover, a.fork-btn:hover { background: #a67c1f; transform: translateY(-1px); }
+  .fork-btn.choice { background: #5c4730; }
+  .fork-btn.choice:hover { background: #8B6914; }
+
+  #start-tour {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(145deg, #8B6914, #6b4f0f); color: #f5f0e1; border: none;
+    padding: 14px 32px; border-radius: 999px; font-size: 15px; font-weight: 600; cursor: pointer;
+    z-index: 1001; box-shadow: 0 8px 25px rgba(139, 105, 20, 0.5); display: flex; align-items: center; gap: 10px;
+  }
+  #start-tour:hover { box-shadow: 0 12px 35px rgba(139, 105, 20, 0.7); transform: translateX(-50%) translateY(-2px); }
+
+  #img-lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: none; align-items: center; justify-content: center; z-index: 2000; cursor: zoom-out; }
+  #img-lightbox.open { display: flex; }
+  #img-lightbox img { max-width: 94vw; max-height: 82vh; border-radius: 10px; }
+
+  /* ── Deep Dive overlay: iframe-in-a-panel, same family as the site's
+       story_url pattern (NOT the Google-Docs-fetch deepdive_url pattern --
+       this is a local static page, so an iframe is the right fit) ── */
+  #deepdive-overlay { display: none; position: fixed; inset: 0; z-index: 2500; background: rgba(10,9,6,0.85); }
+  #deepdive-overlay.open { display: block; }
+  #deepdive-panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 46%; min-width: 340px; max-width: 600px;
+    background: #faf6ec; border-left: 2px solid #8B6914; display: flex; flex-direction: column;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.6); transform: translateX(100%); transition: transform 0.3s ease;
+  }
+  #deepdive-overlay.open #deepdive-panel { transform: translateX(0); }
+  #deepdive-header {
+    background: #2a2722; color: #e8d5a3; padding: 12px 16px; display: flex; align-items: center;
+    justify-content: space-between; flex-shrink: 0; gap: 12px;
+  }
+  #deepdive-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  #deepdive-close {
+    background: rgba(255,255,255,0.1); border: none; color: #e8d5a3; font-size: 16px; line-height: 1;
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #deepdive-close:hover { background: rgba(255,255,255,0.2); }
+  #deepdive-iframe { flex: 1; width: 100%; border: none; background: #faf6ec; }
+
+  @media (max-width: 700px) {
+    #panel { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 60vh; border-radius: 16px 16px 0 0; border-left: none; border-right: none; border-bottom: none; }
+    #panel img { max-height: 110px; }
+    #panel { display: flex; flex-direction: column; }
+    #start-tour { bottom: 16px; padding: 12px 24px; font-size: 14px; }
+    #deepdive-panel {
+      position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-width: 100%; height: 82dvh;
+      border-left: none; border-top: 2px solid #8B6914; border-radius: 16px 16px 0 0; transform: translateY(100%);
+    }
+    #deepdive-overlay.open #deepdive-panel { transform: translateY(0); }
+  }
+
+  .leaflet-tooltip { background: rgba(20, 19, 16, 0.95) !important; color: #e8d5a3 !important; border: 1px solid #5c5240 !important; font-size: 13px; padding: 6px 10px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<button id="start-tour" onclick="startGuidedTour()">
+  <span>▶</span>
+  <span>Begin Guided Journey</span>
+</button>
+
+<div id="panel">
+  <button id="close-panel" onclick="closePanel()">×</button>
+  <div id="panel-scroll">
+    <img id="panel-image" src="" alt="">
+    <h2 id="panel-title"></h2>
+    <p id="panel-text"></p>
+  </div>
+  <div id="panel-actions">
+    <div class="action-row" id="row-deepdive">
+      <span class="action-label" id="label-deepdive"></span>
+      <button id="action-deepdive" class="action-btn">📖 Deep Dive →</button>
+    </div>
+  </div>
+  <div id="tour-forks">
+    <div id="tour-counter"></div>
+    <div id="tour-buttons-row">
+      <button id="tour-back-btn" onclick="goBack()">← Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="img-lightbox" onclick="this.classList.remove('open')">
+  <img id="img-lightbox-img" src="" alt="">
+</div>
+
+<div id="deepdive-overlay" onclick="closeDeepDive(event)">
+  <div id="deepdive-panel">
+    <div id="deepdive-header">
+      <span id="deepdive-title">Deep Dive</span>
+      <button id="deepdive-close" onclick="closeDeepDive()">✕</button>
+    </div>
+    <iframe id="deepdive-iframe" src="about:blank" title="Deep dive content"></iframe>
+  </div>
+</div>
+
+<script>
+// === PROMETHEUS, ACROSS THE ERAS ===
+// This is the original v1 chain (Hesiod -> Aeschylus -> Shelley -> Satan ->
+// Serpent -> Yahweh-as-trickster -> Tricksters-everywhere), now paired with a
+// second, separate tour ("tour_serpent_forms.html") that covers the bird/
+// serpent/fire material. The two tours are cross-linked, not merged into one
+// file, so each can be entered directly without wading through the other.
+// Guided tour starts at Hesiod -- Prometheus first, as the title promises.
+
+const SERPENT_ICON = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMWExODE0Ii8+CjxwYXRoIGQ9Ik0xMDAgMzAgQzQwIDMwIDMwIDcwIDYwIDkwIEM5MCAxMTAgMTQwIDkwIDE0MCA2MCBDMTQwIDQwIDExMCAzNSAxMDAgNTUgQzkwIDc1IDEyMCA4NSAxMzAgNjUgQzE0MCA0NSAxMTUgMjUgOTAgNDAgQzYwIDU4IDU1IDEwMCA5MCAxMjAgQzEyNSAxNDAgMTUwIDExMCAxNDAgODAiCmZpbGw9Im5vbmUiIHN0cm9rZT0iI2M5OTYyYyIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KPGNpcmNsZSBjeD0iMTAwIiBjeT0iMzAiIHI9IjgiIGZpbGw9IiNlOGQ1YTMiLz4KPGNpcmNsZSBjeD0iMTAzIiBjeT0iMjgiIHI9IjEuNiIgZmlsbD0iIzFhMTgxNCIvPgo8L3N2Zz4K";
+
+const motifs = [
+  {
+    id: "hesiod",
+    lat: 1010.0, lng: 1480.0,
+    label: "Prometheus (Hesiod)",
+    subtitle: "Archaic Greece • Theogony, c. 700 BC",
+    image: SERPENT_ICON,
+    text: "The oldest surviving version: a trickster-thief who repeatedly outwits Zeus -- tricking him over the division of sacrifice, then stealing fire for humanity. Punished for the theft, not for any noble cause. This Prometheus belongs with the tricksters, not yet the rebels.",
+    forks: [ { label: "Next →", target: "aeschylus" } ]
+  },
+  {
+    id: "aeschylus",
+    lat: 1030.0, lng: 1545.0,
+    label: "Prometheus (Aeschylus)",
+    subtitle: "Classical Greece • Prometheus Bound, 5th c. BC",
+    image: SERPENT_ICON,
+    text: "Two centuries later the same figure is rewritten as a tragic champion of humanity, defiant rather than cunning, chained to a rock for the crime of caring about mankind. The trickster has been promoted to a martyr -- the era's politics needed a rebel more than a rogue.",
+    forks: [ { label: "Next →", target: "shelley" } ]
+  },
+  {
+    id: "shelley",
+    lat: 1055.0, lng: 1430.0,
+    label: "Prometheus (Shelley)",
+    subtitle: "Romantic Europe • Prometheus Unbound, 1820",
+    image: SERPENT_ICON,
+    text: "By the Romantic era he is rewritten again -- now a liberator, a symbol of the human spirit itself, unbound rather than punished. Three eras, three completely different morals drawn from the same name. The figure didn't change; the age reading it did.",
+    deepdiveUrl: "deepdives/prometheus-across-eras.html",
+    deepdiveTitle: "Hesiod, Aeschylus, Shelley",
+    forks: [ { label: "Next →", target: "satan" } ]
+  },
+  {
+    id: "satan",
+    lat: 935.0, lng: 1730.0,
+    label: "Satan",
+    subtitle: "Abrahamic traditions • the adversary",
+    image: SERPENT_ICON,
+    text: "Prometheus's counterpart in the Western imagination: another rebel against the ruling order, but where Prometheus suffers for mankind, this figure suffers for his own ambition. Different verdict, same basic shape -- a being who defies the highest power and is cast down for it.",
+    deepdiveUrl: "deepdives/prometheus-vs-satan.html",
+    deepdiveTitle: "Prometheus vs. Satan",
+    forks: [ { label: "Next →", target: "serpent" } ]
+  },
+  {
+    id: "serpent",
+    lat: 905.0, lng: 1690.0,
+    label: "The Serpent",
+    subtitle: "Genesis • Eden, and far beyond it",
+    image: SERPENT_ICON,
+    text: "Underneath both figures sits the oldest form: the serpent as the dynamic, dangerous power to change life -- the same force Joseph Campbell traces from Eden through the Buddha's bo tree to Yahweh's own fight with Leviathan. Not evil by default. Just change, with no guarantee of comfort.",
+    forks: [ { label: "Next →", target: "yahweh-trickster" } ]
+  },
+  {
+    id: "yahweh-trickster",
+    lat: 875.0, lng: 1755.0,
+    label: "Yahweh as trickster",
+    subtitle: "Genesis 25-32 • Jacob, the secret twin",
+    image: SERPENT_ICON,
+    text: "The strangest stop on this tour: scholarship on Jacob's story finds God himself acting as the trickster -- withholding information, teaching deception, wrestling Jacob through the night. The serpent power doesn't stay safely on the villain's side of the story. It runs underneath the hero, too.",
+    forks: [ { label: "Next →", target: "tricksters-everywhere" } ]
+  },
+  {
+    id: "tricksters-everywhere",
+    lat: 1120.0, lng: 1940.0,
+    label: "Tricksters, everywhere",
+    subtitle: "A category, not a character",
+    image: SERPENT_ICON,
+    text: "Prometheus is one name in a list that circles the planet: Loki, Anansi, Coyote, Hermes, Eshu, Maui, Exu -- the same role recurring in unrelated traditions. That repetition is the actual finding: humans keep needing a figure who breaks the rule that holds the world together, for better or worse.",
+    forks: [
+      { label: "Explore the serpent & bird forms →", href: "tour_serpent_forms.html", choice: true },
+      { label: "End the tour here", target: "__end__", choice: true }
+    ]
+  }
+];
+
+let map;
+let currentNodeId = null;
+let tourHistory = [];
+let isTourActive = false;
+
+function nodeById(id) { return motifs.find(function(m) { return m.id === id; }); }
+
+function initMap() {
+  map = L.map('map', { crs: L.CRS.Simple, minZoom: -3, maxZoom: 5, zoomControl: true, attributionControl: false });
+
+  map.on('click', function() {
+    var panel = document.getElementById('panel');
+    if (panel.style.display === 'flex') closePanel();
+  });
+
+  const imageUrl = "images/landing-giga.png";
+  const img = new Image();
+  img.onload = function() {
+    const bounds = [[0, 0], [img.height, img.width]];
+    L.imageOverlay(imageUrl, bounds).addTo(map);
+
+    const markerPositions = [];
+    motifs.forEach(function(motif) {
+      const marker = L.marker([motif.lat, motif.lng]).addTo(map);
+      marker.bindTooltip(
+        '<b>' + motif.label + '</b><br><span style="font-size:11px;opacity:0.8">' + motif.subtitle + '</span>',
+        { direction: 'top', offset: [0, -8], className: 'custom-tooltip' }
+      );
+      marker.on('click', function() {
+        if (isTourActive) {
+          isTourActive = false;
+          document.getElementById('tour-forks').style.display = 'none';
+          document.getElementById('start-tour').style.display = 'flex';
+        }
+        showPanel(motif, false);
+      });
+      markerPositions.push([motif.lat, motif.lng]);
+    });
+
+    function fitView() {
+      map.invalidateSize();
+      if (markerPositions.length > 0) {
+        map.fitBounds(L.latLngBounds(markerPositions), { padding: [140, 160] });
+      } else {
+        map.fitBounds(bounds, { padding: [60, 60] });
+      }
+    }
+    fitView();
+
+    let hadNoSize = map.getSize().x === 0 || map.getSize().y === 0;
+    new ResizeObserver(function() {
+      map.invalidateSize();
+      const s = map.getSize();
+      if (hadNoSize && s.x > 0 && s.y > 0) { fitView(); hadNoSize = false; }
+    }).observe(document.getElementById('map'));
+  };
+  img.src = imageUrl;
+}
+
+function showPanel(motif, isTourMode) {
+  document.getElementById('panel-image').src = motif.image;
+  document.getElementById('panel-title').innerHTML =
+    motif.label + ' <span style="font-size:13px; font-weight:400; color:#8a7f68; display:block; margin-top:2px;">' + motif.subtitle + '</span>';
+  document.getElementById('panel-text').textContent = motif.text;
+  document.getElementById('panel-scroll').scrollTop = 0;
+
+  renderActions(motif);
+
+  const panel = document.getElementById('panel');
+  const forksEl = document.getElementById('tour-forks');
+  panel.style.display = 'flex';
+
+  if (isTourMode) {
+    forksEl.style.display = 'flex';
+    renderForks(motif);
+  } else {
+    forksEl.style.display = 'none';
+  }
+}
+
+function renderActions(motif) {
+  const actionsEl = document.getElementById('panel-actions');
+  const ddRow = document.getElementById('row-deepdive');
+  const ddLabel = document.getElementById('label-deepdive');
+  const ddBtn = document.getElementById('action-deepdive');
+  if (motif.deepdiveUrl) {
+    ddRow.style.display = 'flex';
+    ddLabel.textContent = motif.deepdiveTitle || 'Deep Dive';
+    ddBtn.onclick = function() { openDeepDive(motif.deepdiveUrl, motif.deepdiveTitle || motif.label); };
+  } else {
+    ddRow.style.display = 'none';
+  }
+  // Container (including its divider line) only shows up when it has something in it.
+  actionsEl.style.display = motif.deepdiveUrl ? 'flex' : 'none';
+}
+
+function closePanel() {
+  document.getElementById('panel').style.display = 'none';
+  isTourActive = false;
+  document.getElementById('tour-forks').style.display = 'none';
+  document.getElementById('start-tour').style.display = 'flex';
+}
+
+function startGuidedTour() {
+  tourHistory = [];
+  isTourActive = true;
+  document.getElementById('start-tour').style.display = 'none';
+  goToNode('hesiod', true);
+}
+
+function goToNode(id, pushHistory) {
+  if (id === '__end__') { closePanel(); return; }
+  const node = nodeById(id);
+  if (!node) return;
+  if (pushHistory) tourHistory.push(id);
+  currentNodeId = id;
+  showPanel(node, true);
+  flyToNode(node);
+}
+
+function goBack() {
+  if (tourHistory.length <= 1) return;
+  tourHistory.pop();
+  const prevId = tourHistory[tourHistory.length - 1];
+  currentNodeId = prevId;
+  const node = nodeById(prevId);
+  showPanel(node, true);
+  flyToNode(node);
+}
+
+function flyToNode(motif) {
+  const target = L.latLng(motif.lat, motif.lng);
+  const zoomLvl = 2.8;
+  if (window.matchMedia('(max-width: 700px)').matches) {
+    const pt = map.project(target, zoomLvl);
+    pt.y += map.getSize().y * 0.26;
+    map.flyTo(map.unproject(pt, zoomLvl), zoomLvl, { duration: 2.2, easeLinearity: 0.25 });
+  } else {
+    map.flyTo(target, zoomLvl, { duration: 2.2, easeLinearity: 0.25 });
+  }
+}
+
+function renderForks(motif) {
+  // Counter is each marker's fixed position in this tour's own motifs array --
+  // not how the visitor got here. Forking or wandering off and back doesn't
+  // change it: "stop 3 of 7 markers on this tour", full stop.
+  const idx = motifs.indexOf(motif);
+  document.getElementById('tour-counter').textContent = (idx + 1) + ' / ' + motifs.length;
+
+  document.getElementById('tour-back-btn').classList.toggle('hidden', tourHistory.length <= 1);
+
+  const row = document.getElementById('tour-buttons-row');
+  row.querySelectorAll('.fork-btn').forEach(function(el) { el.remove(); });
+
+  (motif.forks || []).forEach(function(fork) {
+    let el;
+    if (fork.href) {
+      // Cross-tour link -- real navigation, plain <a> so right-click/open-in-new-tab works
+      el = document.createElement('a');
+      el.href = fork.href;
+    } else {
+      el = document.createElement('button');
+      el.onclick = function() { goToNode(fork.target, true); };
+    }
+    el.className = 'fork-btn' + (fork.choice ? ' choice' : '');
+    el.textContent = fork.label;
+    row.appendChild(el);
+  });
+}
+
+// === DEEP DIVE (iframe-in-a-panel, matching the site's story_url pattern) ===
+function openDeepDive(url, title) {
+  document.getElementById('deepdive-title').textContent = title || 'Deep Dive';
+  document.getElementById('deepdive-iframe').src = url;
+  document.getElementById('deepdive-overlay').classList.add('open');
+}
+
+function closeDeepDive(e) {
+  if (e && e.target !== document.getElementById('deepdive-overlay')) return;
+  document.getElementById('deepdive-overlay').classList.remove('open');
+  document.getElementById('deepdive-iframe').src = 'about:blank';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const ddOverlay = document.getElementById('deepdive-overlay');
+    if (ddOverlay.classList.contains('open')) {
+      closeDeepDive();
+    } else {
+      const panel = document.getElementById('panel');
+      if (panel.style.display === 'flex') {
+        closePanel();
+      } else if (window.parent !== window) {
+        window.parent.postMessage('close-story', '*');
+      }
+    }
+  }
+  if (e.key.toLowerCase() === 't' && document.getElementById('panel').style.display !== 'flex') {
+    startGuidedTour();
+  }
+});
+
+document.getElementById('panel-image').addEventListener('click', function() {
+  document.getElementById('img-lightbox-img').src = this.src;
+  document.getElementById('img-lightbox').classList.add('open');
+});
+
+window.onload = initMap;
+</script>
+</body>
+</html>
